@@ -6,7 +6,7 @@ import uuid
 
 app = Flask(__name__)
 
-BLACKBOX_FILE = 'blackbox-target.yml'
+BLACKBOX_FILE = 'E:/Monitoring/prometheus/blackbox-targets.yml'
 
 def parse_target(target_string):
     match = re.search(r'#ADDED (\d{4}-\d{2}-\d{2})$', target_string)

@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <title>Blackbox Targets Manager</title>
   <style>
-    html {
+    /* html {
     filter: invert(85%) hue-rotate(180deg);
-    }
+    } */
     body {
       font-family: Arial, sans-serif;
       background-color: #f5f5f5;
@@ -20,16 +20,19 @@
     }
 
     #addTargetForm {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  background-color: #fff;
-  padding: 15px;
-  border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
-}
+      display: grid;
+      grid-template-columns: repeat(6, 1fr); /* 5 columns per row */
+      gap: 10px;
+      background-color: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+    }
+
+    #addTargetForm button {
+      grid-column: span 1; /* Make the button take full width */
+    }
 
     input, select, button {
       padding: 8px 8px;
@@ -188,7 +191,7 @@
   <h1>Blackbox Targets Manager</h1>
 
   <form id="addTargetForm">
-    <input type="text" name="address" placeholder="Prometheus Server" required>
+    <input type="text" name="address" placeholder="Prometheus Server (IP:PORT)" required>
     <input type="text" name="instance" placeholder="Target Address" required>
     <select name="module" required>
       <option value="" disabled selected>Module</option>
@@ -198,42 +201,41 @@
     </select>
     <select name="zone">
       <option value="" disabled selected>Zone</option>
-      <option value="Internal">Internal (Private)</option>
-      <option value="External">External (Public)</option>
+      <option value="Internal">Internal (Private IP)</option>
+      <option value="External">External (Public IP)</option>
     </select>
-    <select name="service">
-        <option value="" disabled selected>Service</option>
-        <option value="Public DNS">Public DNS</option>
-        <option value="Local DNS">Local DNS</option>
-        <option value="External IP">External IP</option>
-        <option value="Internal IP">Internal IP</option>
-        <option value="Website">Website</option>
-        <option value="Gateway">Gateway</option>
-        <option value="Relay">Relay</option>
-        <option value="VPN">VPN</option>
-        <option value="Proxy">Proxy</option>
-      </select>
+    <input list="serviceOptions" id="service" name="service" placeholder="Select or type Service">
+    <datalist id="serviceOptions">
+        <option value="Public DNS">
+        <option value="Local DNS">
+        <option value="External IP">
+        <option value="Internal IP">
+        <option value="Website">
+        <option value="Gateway">
+        <option value="Relay">
+        <option value="VPN">
+        <option value="Proxy">
+    </datalist>
     <!-- <input type="text" name="service" placeholder="Service" required> -->
-    <select name="device_type">
-        <option value="" disabled selected>Device Type</option>
-        <option value="Router">Router</option>
-        <option value="Switch">Switch</option>
-        <option value="Server">Server</option>
-        <option value="OLT">OLT</option>
-        <option value="ONT">ONT</option>
-        <option value="Access Point">Access Point</option>
-        <option value="Firewall">Firewall</option>
-      </select>
-      <!-- <input type="text" name="device_type" placeholder="Device Type" required> -->
-      <select name="connection_type">
-        <option value="" disabled selected>Connection Type</option>
-        <option value="Fiber Optic">Fiber Optic</option>
-        <option value="Wireless">Wireless</option>
-        <option value="LAN Cable">LAN Cable</option>
-      </select>
+    <input list="deviceTypeOptions" id="device_type" name="device_type" placeholder="Select or type Device type">
+    <datalist id="deviceTypeOptions">
+        <option value="Router">
+        <option value="Switch">
+        <option value="Server">
+        <option value="OLT">
+        <option value="ONT">
+        <option value="Access Point">
+    </datalist>
+    <!-- <input type="text" name="device_type" placeholder="Device Type" required> -->
+    <input list="connectionTypeOptions" id="connection_type" name="connection_type" placeholder="Select or type Connection type">
+    <datalist id="connectionTypeOptions">
+        <option value="Fiber Optic">
+        <option value="Wireless">
+        <option value="LAN Cable">
+    </datalist>
     <!-- <input type="text" name="connection_type" placeholder="Connection Type" required> -->
     <input type="text" name="location" placeholder="Location" required>
-    <input type="text" name="geohash" placeholder="Geohash" >
+    <input type="text" name="geohash" placeholder="Geohash (ex. r29epBzggPYE)" >
     <input type="text" name="target_name" placeholder="Target Name" required>
     <input type="text" name="description" placeholder="Description">
     <button type="submit">Add Target</button>
@@ -321,7 +323,7 @@
   </footer>
 
   <script>
-    // Search functionality
+    // SEARCH FEATURE
     document.getElementById('searchInput').addEventListener('input', function() {
       const searchValue = this.value.toLowerCase();
       const rows = document.querySelectorAll('#targetsTable tbody tr');
@@ -333,43 +335,45 @@
       });
     });
 
+    // ADD TARGET
     document.getElementById('addTargetForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
+      e.preventDefault();
 
-  // Get form data
-  const formData = new FormData(e.target);
+      // Get form data
+      const formData = new FormData(e.target);
 
-  // Strip leading/trailing whitespaces for address and instance
-  const prometheusServer = formData.get('address').trim();
-  const targetAddress = formData.get('instance').trim();
+      // Strip leading/trailing whitespaces for address and instance
+      const prometheusServer = formData.get('address').trim();
+      const targetAddress = formData.get('instance').trim();
 
-  // Validate the Service, Device Type, Connection Type, Location, Geohash, Target Name, and Description
-  const fieldsToValidate = ['service', 'device_type', 'connection_type', 'location', 'geohash', 'target_name', 'description'];
-  const invalidSymbolRegex = /[^a-zA-Z0-9\s]/; // Disallow symbols
+      // Validate the Service, Device Type, Connection Type, Location, Geohash, Target Name, and Description
+      const fieldsToValidate = ['service', 'device_type', 'connection_type', 'location', 'geohash', 'target_name', 'description'];
+      const invalidSymbolRegex = /[^a-zA-Z0-9\s]/; // Disallow symbols
 
-  for (const field of fieldsToValidate) {
-    const value = formData.get(field).trim();
-    if (invalidSymbolRegex.test(value)) {
-      alert(`The field "${field}" contains invalid symbols.`);
-      return;
-    }
-  }
+      for (const field of fieldsToValidate) {
+        const value = formData.get(field).trim();
+        if (invalidSymbolRegex.test(value)) {
+          alert(`The field "${field}" contains invalid symbols.`);
+          return;
+        }
+      }
 
-  // Update form data with stripped values
-  formData.set('address', prometheusServer);
-  formData.set('instance', targetAddress);
+      // Update form data with stripped values
+      formData.set('address', prometheusServer);
+      formData.set('instance', targetAddress);
 
-  // Submit the data
-  const response = await fetch('/target', {
-    method: 'POST',
-    body: formData
-  });
-  const data = await response.json();
-  alert(data.message);
-  location.reload();
-});
+      // Submit the data
+      const response = await fetch('/target', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await response.json();
+      alert(data.message);
+      location.reload();
+    });
 
 
+    // ENABLE DISABLE TARGET
     function toggleTarget(uid) {
         if (confirm(`Are you sure you want to toggle ${uid} target?`)) {
         fetch(`/target/${uid}/toggle`, { method: 'POST' })
@@ -382,6 +386,7 @@
     }
 
 
+    // REMOVE TARGET
     function removeTarget(uid) {
         if (confirm(`Are you sure you want to delete this target? ${uid}`)) {
         fetch(`/target/${uid}`, { method: 'DELETE' })
@@ -393,6 +398,8 @@
       }
     }
 
+
+    // SORT TABLE
     let sortOrder = {}; // Keep track of sort direction for each column
 
     // Add event listener to table headers for sorting
@@ -436,6 +443,7 @@
       sortedRows.forEach(row => tbody.appendChild(row));
     }
 
+
     // Update the footer with the number of targets
     document.addEventListener('DOMContentLoaded', () => {
       const rows = document.querySelectorAll('#targetsTable tbody tr');
@@ -446,9 +454,9 @@
       document.getElementById('enabledTargets').textContent = enabledCount;
       document.getElementById('disabledTargets').textContent = disabledCount;
     });
-  </script>
 
-<script>
+
+    //HIDE COLOUM
     const checkboxes = document.querySelectorAll('#hideColumnsCheckboxes input[type="checkbox"]');
     const table = document.querySelector('#targetsTable');
 
@@ -467,8 +475,23 @@
         checkbox.dispatchEvent(new Event('change'));
       }
     });
-    
+
+
+    // TRIM WHITESPACE
+    document.getElementById('addTargetForm').addEventListener('submit', function(event) {
+      const fields = ['target_name', 'geohash', 'location', 'description'];
+      fields.forEach(field => {
+        let input = document.querySelector(`input[name="${field}"]`);
+        if (input) {
+          input.value = input.value.trim();
+        }
+      });
+    });
+
+
   </script>
+  
+  
 </body>
 
 </html>
