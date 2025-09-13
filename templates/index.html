@@ -3,17 +3,278 @@
 <head>
   <meta charset="UTF-8">
   <title>Blackbox Targets Manager</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    /* html {
-    filter: invert(85%) hue-rotate(180deg);
-    } */
     body {
       font-family: Arial, sans-serif;
       background-color: #f5f5f5;
       margin: 0;
-      padding: 20px;
+      padding: 0;
     }
 
+    .header {
+      background-color: #fff;
+      padding: 15px 20px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .header-title {
+      color: #007bff;
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .header-button {
+      background-color: #007bff;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .header-button.generate {
+      background-color: #28a745;
+    }
+
+    .header-button.primary {
+      background-color: #007bff;
+    }
+
+    .header-button:hover {
+      opacity: 0.9;
+    }
+
+    /* Add Target Options styles */
+    .add-target-options {
+      display: flex;
+      gap: 20px;
+      padding: 20px 0;
+    }
+
+    .option-card {
+      flex: 1;
+      background-color: #f8f9fa;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .option-card:hover {
+      border-color: #007bff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.1);
+    }
+
+    .option-card i {
+      font-size: 2.5em;
+      color: #007bff;
+      margin-bottom: 15px;
+    }
+
+    .option-card h3 {
+      color: #343a40;
+      margin: 10px 0;
+      font-size: 1.2em;
+    }
+
+    .option-card p {
+      color: #6c757d;
+      margin: 0;
+      font-size: 0.9em;
+    }
+
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1100;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+      background-color: #fff;
+      margin: 5% auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 1200px;
+      position: relative;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      font-size: 12px;
+    }
+
+    .preview-table th {
+      background-color: #f8f9fa;
+      padding: 8px;
+      text-align: left;
+      border: 1px solid #dee2e6;
+      color: #495057;
+    }
+
+    .preview-table th:hover {
+      background-color: #e9ecef;
+      color: #495057;
+    }
+
+    .preview-table td {
+      padding: 8px;
+      border: 1px solid #dee2e6;
+    }
+
+    .preview-table tr:nth-child(even) {
+      background-color: #f8f9fa;
+    }
+
+    .preview-section {
+      margin-top: 20px;
+      border-top: 1px solid #dee2e6;
+      padding-top: 20px;
+    }
+
+    .validation-message {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    .validation-message.error {
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+
+    .validation-message.success {
+      background-color: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+
+    .import-summary {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+    }
+
+    .import-summary h4 {
+      margin: 0 0 10px 0;
+      color: #495057;
+    }
+
+    .import-summary .stats {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 15px;
+    }
+
+    .import-summary .stat-item {
+      flex: 1;
+      text-align: center;
+    }
+
+    .import-summary .stat-number {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .import-summary .stat-label {
+      color: #6c757d;
+      font-size: 14px;
+    }
+
+    .import-summary .success {
+      color: #28a745;
+    }
+
+    .import-summary .error {
+      color: #dc3545;
+    }
+
+    .import-summary .error-list {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #721c24;
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+      border-radius: 4px;
+      padding: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .import-summary .error-list .error-item {
+      margin-bottom: 5px;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .import-summary .error-list .error-item:before {
+      content: "•";
+      position: absolute;
+      left: 8px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-title {
+      margin: 0;
+      color: #007bff;
+    }
+
+    .close-modal {
+      font-size: 24px;
+      font-weight: bold;
+      color: #666;
+      cursor: pointer;
+      border: none;
+      background: none;
+      padding: 0;
+    }
+
+    .close-modal:hover {
+      color: #333;
+    }
+
+    .modal-body {
+      margin-bottom: 20px;
+    }
+
+    .main-content {
+      padding: 0 20px 80px;
+    }
     h1, h2 {
       text-align: center;
       color: #007bff;
@@ -28,6 +289,34 @@
       border-radius: 10px;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
       margin-bottom: 20px;
+      transition: all 0.3s ease;
+    }
+
+    /* Modal form layout - vertical form */
+    .modal #addTargetForm {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      grid-template-columns: none;
+      max-width: none;
+    }
+
+    .modal #addTargetForm input,
+    .modal #addTargetForm select,
+    .modal #addTargetForm button {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    #addTargetForm.highlight {
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.3);
+      animation: pulse 2s;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.5); }
+      70% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
     }
 
     #addTargetForm button {
@@ -80,6 +369,14 @@
       color: white;
       cursor: pointer;
       transition: background-color 0.2s ease-in-out;
+      position: relative;
+    }
+
+    th:last-child {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: default;
     }
 
     th:hover {
@@ -104,6 +401,39 @@
       font-weight: bold;
     }
 
+    .import-section {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      background-color: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .import-section input[type="file"] {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 12px;
+    }
+
+    .import-section button {
+      background-color: #17a2b8;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .import-section button:hover {
+      background-color: #138496;
+    }
+
     .action-buttons {
       display: flex;
       gap: 5px;
@@ -115,25 +445,36 @@
     }
 
     footer {
-      margin-top: 20px;
-      padding: 10px;
-      text-align: center;
-      background-color: #f5f5f5;
-      border-radius: 5px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 15px;
+      background-color: #fff;
+      border-top: 1px solid #dee2e6;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
     }
 
     .footer-info {
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
+      gap: 40px;
       padding: 0 20px;
       font-size: 14px;
       color: #333;
+      max-width: 1200px;
+      margin: 0 auto;
     }
 
     .footer-info div {
-      flex: 1;
-      text-align: center;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .footer-info div span {
+      font-weight: bold;
     }
 
     .enabled {
@@ -147,103 +488,325 @@
     }
 
     #searchInput {
-    padding: 8px 12px;
-    font-size: 14px;
-    margin-bottom: 20px;
-    border: 1px solid #007bff;
-    border-radius: 1000px;
-    width: 100%;
-    max-width: 100%;
-    align-items: center;
-    text-align-last: center;
+      padding: 8px 12px;
+      font-size: 12px;
+      border: 1px solid #007bff;
+      border-radius: 5px;
+      width: 300px;
+      margin-right: 10px;
+    }
+
+    #searchInput:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
     }
 
     table {
         font-size: 14px;
     }
+    .table-filter-button {
+      background: none;
+      border: none;
+      color: white;
+      padding: 4px 8px;
+      cursor: pointer;
+      float: right;
+      transition: opacity 0.2s;
+    }
+
+    .table-filter-button:hover {
+      opacity: 0.8;
+    }
+
+    .table-filter-button i {
+      font-size: 14px;
+    }
+
     #hideColumnsCheckboxes {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 20px;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background-color: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+      padding: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      min-width: 200px;
+      display: none;
+    }
+
+    #hideColumnsCheckboxes {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      background-color: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+      padding: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      min-width: 200px;
+      margin-top: 5px;
+    }
+
+    #hideColumnsCheckboxes.show {
+      display: block;
     }
 
     .checkbox-label {
       display: flex;
       align-items: center;
-      gap: 5px;
-      background-color: #fff;
-      padding: 8px 12px;
-      border-radius: 5px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      padding: 8px;
       cursor: pointer;
-      font-size: 12px;
+      transition: background-color 0.2s;
+      border-radius: 4px;
+    }
+
+    .checkbox-label:hover {
+      background-color: #f8f9fa;
     }
 
     .checkbox-label input {
+      margin-right: 8px;
       cursor: pointer;
+    }
+
+    /* Toast Container */
+    #toastContainer {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+    }
+
+    /* Toast Notification */
+    .toast {
+      background-color: #333;
+      color: white;
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      min-width: 250px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      animation: slideIn 0.5s ease-out;
+    }
+
+    .toast.unsaved {
+      background-color: #f0ad4e;
+      color: black;
+    }
+
+    .toast .toast-content {
+      flex-grow: 1;
+    }
+
+    .toast .toast-buttons {
+      display: flex;
+      gap: 8px;
+      margin-left: 15px;
+    }
+
+    .toast button {
+      padding: 4px 8px;
+      font-size: 12px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      background-color: rgba(255, 255, 255, 0.9);
+      color: #333;
+    }
+
+    .toast button:hover {
+      background-color: white;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
     }
 
   </style>
 </head>
 
 <body>
-  <h1>Blackbox Targets Manager</h1>
-
-  <form id="addTargetForm">
-    <input type="text" name="address" placeholder="Prometheus Server (IP:PORT)" required>
-    <input type="text" name="instance" placeholder="Target Address" required>
-    <select name="module" required>
-      <option value="" disabled selected>Module</option>
-      <option value="dns">DNS</option>
-      <option value="icmp">ICMP</option>
-      <option value="http_2xx">HTTP_2xx</option>
-    </select>
-    <select name="zone">
-      <option value="" disabled selected>Zone</option>
-      <option value="Internal">Internal (Private IP)</option>
-      <option value="External">External (Public IP)</option>
-    </select>
-    <input list="serviceOptions" id="service" name="service" placeholder="Select or type Service">
-    <datalist id="serviceOptions">
-        <option value="Public DNS">
-        <option value="Local DNS">
-        <option value="External IP">
-        <option value="Internal IP">
-        <option value="Website">
-        <option value="Gateway">
-        <option value="Relay">
-        <option value="VPN">
-        <option value="Proxy">
-    </datalist>
-    <!-- <input type="text" name="service" placeholder="Service" required> -->
-    <input list="deviceTypeOptions" id="device_type" name="device_type" placeholder="Select or type Device type">
-    <datalist id="deviceTypeOptions">
-        <option value="Router">
-        <option value="Switch">
-        <option value="Server">
-        <option value="OLT">
-        <option value="ONT">
-        <option value="Access Point">
-    </datalist>
-    <!-- <input type="text" name="device_type" placeholder="Device Type" required> -->
-    <input list="connectionTypeOptions" id="connection_type" name="connection_type" placeholder="Select or type Connection type">
-    <datalist id="connectionTypeOptions">
-        <option value="Fiber Optic">
-        <option value="Wireless">
-        <option value="LAN Cable">
-    </datalist>
-    <!-- <input type="text" name="connection_type" placeholder="Connection Type" required> -->
-    <input type="text" name="location" placeholder="Location" required>
-    <input type="text" name="geohash" placeholder="Geohash (ex. r29epBzggPYE)" >
-    <input type="text" name="target_name" placeholder="Target Name" required>
-    <input type="text" name="description" placeholder="Description">
-    <button type="submit">Add Target</button>
-  </form>
-
-  <!-- Search Input -->
-  <input type="text" id="searchInput" placeholder="Type anything to search targets...">
+  <div id="toastContainer"></div>
   
+  <div class="header">
+    <h1 class="header-title">Blackbox Targets Manager</h1>
+    <div class="header-actions">
+      <input type="text" id="searchInput" placeholder="Type anything to search targets...">
+      <button onclick="openAddTargetModal()" class="header-button primary">
+        <i class="fas fa-plus"></i> Add Target
+      </button>
+      <button onclick="saveChanges()" class="header-button generate">Save & Generate YAML</button>
+    </div>
+  </div>
+
+  <!-- Add Target Options Modal -->
+  <div id="addTargetOptionsModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Add Target</h2>
+        <button class="close-modal" onclick="closeAddTargetModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="add-target-options">
+          <div class="option-card" onclick="openImportModal(); closeAddTargetModal();">
+            <i class="fas fa-file-import"></i>
+            <h3>Import from CSV</h3>
+            <p>Import multiple targets from a CSV file</p>
+          </div>
+          <div class="option-card" onclick="openAddTargetManuallyModal(); closeAddTargetModal();">
+            <i class="fas fa-plus-circle"></i>
+            <h3>Add Manually</h3>
+            <p>Add a single target with form input</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import CSV Modal -->
+  <div id="importModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Import Targets from CSV</h2>
+        <button class="close-modal" onclick="closeImportModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+          <input type="file" id="csvFileInput" accept=".csv" style="flex-grow: 1;" onchange="previewCSV(this)" />
+          <select id="delimiterSelect" style="width: 120px;">
+            <option value="auto">Auto-detect</option>
+            <option value=",">Comma (,)</option>
+            <option value=";">Semicolon (;)</option>
+            <option value="\t">Tab</option>
+            <option value="|">Pipe (|)</option>
+          </select>
+          <a href="#" id="downloadTemplate" class="header-button" style="text-decoration: none;">Download Template</a>
+        </div>
+        <div id="validationMessage"></div>
+        <div id="previewSection" class="preview-section" style="display: none;">
+          <h3>Preview (first 5 rows)</h3>
+          <div style="overflow-x: auto;">
+            <table id="previewTable" class="preview-table"></table>
+          </div>
+          <div id="importSummary" class="import-summary" style="display: none;">
+            <h4>Import Summary</h4>
+            <div class="stats">
+              <div class="stat-item">
+                <div class="stat-number success" id="successCount">0</div>
+                <div class="stat-label">Successful</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number error" id="errorCount">0</div>
+                <div class="stat-label">Failed</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number" id="totalCount">0</div>
+                <div class="stat-label">Total</div>
+              </div>
+            </div>
+            <div class="error-list" id="errorList" style="display: none;">
+              <h5 style="margin-top: 0;">Error Details:</h5>
+              <div id="errorDetails"></div>
+            </div>
+          </div>
+          <div style="margin-top: 20px; text-align: right;">
+            <button onclick="importFromCSV()" class="header-button">Import All Rows</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Target Manually Modal -->
+  <div id="addTargetManuallyModal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header">
+        <h2 class="modal-title">Add Target Manually</h2>
+        <button class="close-modal" onclick="closeAddTargetManuallyModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="addTargetForm">
+          <input type="text" name="address" placeholder="Prometheus Server (IP:PORT)" required>
+          <input type="text" name="instance" placeholder="Target Address" required>
+          <select name="module" required>
+            <option value="" disabled selected>Select Module</option>
+            <option value="dns">DNS</option>
+            <option value="icmp">ICMP</option>
+            <option value="http_2xx">HTTP_2xx</option>
+          </select>
+          <select name="zone">
+            <option value="" disabled selected>Select Zone</option>
+            <option value="INT">INTERNAL</option>
+            <option value="EXT">EXTERNAL</option>
+          </select>
+          <select name="service" id="service" required>
+            <option value="" disabled selected>Select Service</option>
+            <option value="BACKBONE">BACKBONE</option>
+            <option value="UPLINK">UPLINK</option>
+            <option value="DNS">DNS</option>
+            <option value="SERVER">SERVER</option>
+            <option value="HOST">HOST</option>
+            <option value="CPE">CPE</option>
+            <option value="SEGMENT">SEGMENT</option>
+            <option value="EXTERNAL">EXTERNAL</option>
+          </select>
+          <select name="device_type" id="device_type" required>
+            <option value="" disabled selected>Select Device Type</option>
+            <option value="ROUTER">ROUTER</option>
+            <option value="SWITCH">SWITCH</option>
+            <option value="FIREWALL">FIREWALL</option>
+            <option value="LOADBALANCER">LOADBALANCER</option>
+            <option value="RADIO">RADIO</option>
+            <option value="ONT">ONT</option>
+            <option value="SERVER">SERVER</option>
+            <option value="VM">VM</option>
+            <option value="EXTERNAL">EXTERNAL</option>
+          </select>
+          <select name="connection_type" id="connection_type" required>
+            <option value="" disabled selected>Select Medium</option>
+            <option value="FO">FO</option>
+            <option value="WIRELESS">WIRELESS</option>
+            <option value="LAN">LAN</option>
+            <option value="VPN">VPN</option>
+            <option value="UNKNOWN">UNKNOWN</option>
+          </select>
+          <input type="text" name="location" placeholder="Location" required>
+          <input type="text" name="geohash" placeholder="Geohash" >
+          <input type="text" name="short_name" placeholder="Short Name" required>
+          <input type="text" name="target_name" placeholder="Target Name" required>
+          <button type="submit">Add Target</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-content">
+
   <div id="hideColumnsCheckboxes">
     <label class="checkbox-label"><input type="checkbox" value="address" checked> Prometheus Server</label>
     <label class="checkbox-label"><input type="checkbox" value="instance" checked> Target Address</label>
@@ -254,63 +817,36 @@
     <label class="checkbox-label"><input type="checkbox" value="connection_type" checked> Connection Type</label>
     <label class="checkbox-label"><input type="checkbox" value="location" checked> Location</label>
     <label class="checkbox-label"><input type="checkbox" value="geohash" checked> Geohash</label>
+    <label class="checkbox-label"><input type="checkbox" value="short_name" checked> Short Name</label>
     <label class="checkbox-label"><input type="checkbox" value="target_name" checked> Target Name</label>
-    <label class="checkbox-label"><input type="checkbox" value="description"> Description</label>
-    <label class="checkbox-label"><input type="checkbox" value="date_added" checked> Date Added</label>
-    <!-- <label class="checkbox-label"><input type="checkbox" value="status" checked> Status</label> -->
   </div>
-
 
   <!-- <h2>Monitored Targets</h2> -->
   <table id="targetsTable">
       <thead>
           <tr>
-        <th data-column="uid">UID</th>
-        <th data-column="address">Prometheus Server</th>
-        <th data-column="instance">Target Address</th>
+        <th data-column="address">Prometheus</th>
+        <th data-column="instance">Target</th>
         <th data-column="module">Module</th>
         <th data-column="zone">Zone</th>
         <th data-column="service">Service</th>
-        <th data-column="device_type">Device Type</th>
-        <th data-column="connection_type">Connection Type</th>
+        <th data-column="device_type">Device</th>
+        <th data-column="connection_type">Medium</th>
         <th data-column="location">Location</th>
         <th data-column="geohash">Geohash</th>
+        <th data-column="short_name">Short Name</th>
         <th data-column="target_name">Target Name</th>
-        <th data-column="description">Description</th>
-        <th data-column="date_added">Date Added</th>
         <th data-column="status">Status</th>
-        <th>Actions</th>
+        <th style="min-width: 100px;">
+          Actions
+          <button onclick="toggleColumnFilter()" class="table-filter-button" title="Show/Hide Columns">
+            <i class="fas fa-filter"></i>
+          </button>
+        </th>
       </tr>
     </thead>
     <tbody>
-      {% for target in targets %}
-      <tr>
-        <td>{{ target['uid'] }}</td>
-        <td>{{ target['__address__'].lstrip('- ') }}</td>
-        <td>{{ target['instance'] }}</td>
-        <td>{{ target['module'] }}</td>
-        <td>{{ target['zone'] }}</td>
-        <td>{{ target['service'] }}</td>
-        <td>{{ target['device_type'] }}</td>
-        <td>{{ target['connection_type'] }}</td>
-        <td>{{ target['location'] }}</td>
-        <td>{{ target['geohash'] }}</td>
-        <td>{{ target['target_name'] }}</td>
-        <td>{{ target['description'] }}</td>
-        <td>{{ target['date_added'] }}</td>
-
-        <td class="{{ 'status-enabled' if target['enabled'] else 'status-disabled' }}">
-          {{ "Enabled" if target['enabled'] else "Disabled" }}
-        </td>
-        <td>
-          <div class="action-buttons">
-            <button onclick="toggleTarget('{{ target['uid'] }}')">On/Off</button>
-            <!-- <button onclick="editTarget('{{ target['uid'] }}')">Edit</button> -->
-            <button onclick="removeTarget('{{ target['uid'] }}')">Remove</button>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
+      <!-- Table body is populated dynamically by JavaScript -->
     </tbody>
   </table>
 
@@ -323,6 +859,126 @@
   </footer>
 
   <script>
+    // Track unsaved changes
+    let hasUnsavedChanges = false;
+    let unsavedToast = null;
+
+    // Toast notification system
+    function showToast(message, type = 'info', persistent = false) {
+      const toastContainer = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      
+      let toastContent = `
+        <div class="toast-content">${message}</div>
+        <div class="toast-buttons">
+      `;
+
+      if (type === 'unsaved') {
+        toastContent += `
+          <button onclick="discardChanges()">Revert</button>
+          <button onclick="saveChanges()" style="background-color: #28a745; color: white;">Save</button>
+        `;
+      }
+
+      toastContent += '</div>';
+      toast.innerHTML = toastContent;
+
+      if (!persistent) {
+        setTimeout(() => {
+          toast.style.animation = 'slideOut 0.5s ease-out forwards';
+          setTimeout(() => {
+            toastContainer.removeChild(toast);
+          }, 500);
+        }, 5000);
+      }
+
+      toastContainer.appendChild(toast);
+      return toast;
+    }
+
+    function updateUnsavedChanges(hasChanges) {
+      hasUnsavedChanges = hasChanges;
+      
+      if (hasChanges) {
+        if (!unsavedToast) {
+          unsavedToast = showToast('You have unsaved changes!', 'unsaved', true);
+        }
+      } else {
+        if (unsavedToast) {
+          unsavedToast.style.animation = 'slideOut 0.5s ease-out forwards';
+          setTimeout(() => {
+            if (unsavedToast.parentNode) {
+              unsavedToast.parentNode.removeChild(unsavedToast);
+            }
+          }, 500);
+          unsavedToast = null;
+        }
+      }
+    }
+
+    // Window close handler
+    window.addEventListener('beforeunload', (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+
+    // Load targets when the page loads
+    async function loadTargets() {
+      try {
+        const response = await fetch('/targets');
+        const targets = await response.json();
+        const tbody = document.querySelector('#targetsTable tbody');
+        tbody.innerHTML = ''; // Clear existing rows
+
+        targets.forEach(target => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${target.address}</td>
+            <td>${target.instance}</td>
+            <td>${target.module}</td>
+            <td>${target.zone || ''}</td>
+            <td>${target.service || ''}</td>
+            <td>${target.device_type || ''}</td>
+            <td>${target.connection_type || ''}</td>
+            <td>${target.location}</td>
+            <td>${target.geohash || ''}</td>
+            <td>${target.short_name || ''}</td>
+            <td>${target.target_name}</td>
+            <td class="${target.enabled ? 'status-enabled' : 'status-disabled'}">${target.enabled ? 'Enabled' : 'Disabled'}</td>
+            <td>
+              <div class="action-buttons">
+                <button onclick="toggleTarget(${target.id})">On/Off</button>
+                <button onclick="removeTarget(${target.id})">Remove</button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        // Update footer counts
+        const totalTargets = targets.length;
+        const enabledTargets = targets.filter(t => t.enabled).length;
+        const disabledTargets = totalTargets - enabledTargets;
+
+        document.getElementById('totalTargets').textContent = totalTargets;
+        document.getElementById('enabledTargets').textContent = enabledTargets;
+        document.getElementById('disabledTargets').textContent = disabledTargets;
+      } catch (error) {
+        console.error('Error loading targets:', error);
+      }
+    }
+
+    // Load targets when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        // Reset any temporary changes on page load
+        fetch('/discard', { method: 'POST' })
+            .then(() => loadTargets())
+            .catch(error => console.error('Error resetting state:', error));
+    });
+
     // SEARCH FEATURE
     document.getElementById('searchInput').addEventListener('input', function() {
       const searchValue = this.value.toLowerCase();
@@ -346,12 +1002,12 @@
       const prometheusServer = formData.get('address').trim();
       const targetAddress = formData.get('instance').trim();
 
-      // Validate the Service, Device Type, Connection Type, Location, Geohash, Target Name, and Description
-      const fieldsToValidate = ['service', 'device_type', 'connection_type', 'location', 'geohash', 'target_name', 'description'];
+      // Validate the Service, Device Type, Connection Type, Location, Geohash, Short Name, and Target Name
+      const fieldsToValidate = ['service', 'device_type', 'connection_type', 'location', 'geohash', 'short_name', 'target_name'];
       const invalidSymbolRegex = /[^a-zA-Z0-9\s]/; // Disallow symbols
 
       for (const field of fieldsToValidate) {
-        const value = formData.get(field).trim();
+        const value = formData.get(field)?.trim() || '';
         if (invalidSymbolRegex.test(value)) {
           alert(`The field "${field}" contains invalid symbols.`);
           return;
@@ -368,33 +1024,47 @@
         body: formData
       });
       const data = await response.json();
-      alert(data.message);
-      location.reload();
+      showToast(data.message);
+      updateUnsavedChanges(true);
+      
+      // Reload the targets instead of reloading the page
+      loadTargets();
+      
+      // Clear the form and close the modal
+      e.target.reset();
+      closeAddTargetManuallyModal();
     });
 
 
     // ENABLE DISABLE TARGET
-    function toggleTarget(uid) {
-        if (confirm(`Are you sure you want to toggle ${uid} target?`)) {
-        fetch(`/target/${uid}/toggle`, { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-            alert(data.message);
-            location.reload();
-            });
+    async function toggleTarget(uid) {
+      if (confirm(`Are you sure you want to toggle this target?`)) {
+        try {
+          const response = await fetch(`/target/${uid}/toggle`, { method: 'POST' });
+          const data = await response.json();
+          showToast(data.message);
+          updateUnsavedChanges(true);
+          loadTargets(); // Reload the targets instead of the page
+        } catch (error) {
+          console.error('Error toggling target:', error);
+          showToast('Error toggling target. Please try again.', 'error');
         }
+      }
     }
 
-
     // REMOVE TARGET
-    function removeTarget(uid) {
-        if (confirm(`Are you sure you want to delete this target? ${uid}`)) {
-        fetch(`/target/${uid}`, { method: 'DELETE' })
-          .then(response => response.json())
-          .then(data => {
-            alert(data.message);
-            location.reload();
-          });
+    async function removeTarget(uid) {
+      if (confirm(`Are you sure you want to delete this target?`)) {
+        try {
+          const response = await fetch(`/target/${uid}`, { method: 'DELETE' });
+          const data = await response.json();
+          showToast(data.message);
+          updateUnsavedChanges(true);
+          loadTargets(); // Reload the targets instead of the page
+        } catch (error) {
+          console.error('Error removing target:', error);
+          showToast('Error removing target. Please try again.', 'error');
+        }
       }
     }
 
@@ -456,7 +1126,36 @@
     });
 
 
-    //HIDE COLOUM
+    // Column Filter Functionality
+    function toggleColumnFilter(event) {
+      if (event) {
+        event.stopPropagation();
+      }
+      const dropdown = document.getElementById('hideColumnsCheckboxes');
+      const filterButton = document.querySelector('.table-filter-button');
+      const buttonRect = filterButton.getBoundingClientRect();
+      
+      if (dropdown.style.display !== 'block') {
+        dropdown.style.display = 'block';
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = `${buttonRect.bottom + 5}px`;
+        dropdown.style.right = `${window.innerWidth - buttonRect.right}px`;
+      } else {
+        dropdown.style.display = 'none';
+      }
+      
+      // Close dropdown when clicking outside
+      document.addEventListener('click', function closeDropdown(e) {
+        const dropdown = document.getElementById('hideColumnsCheckboxes');
+        
+        if (!filterButton.contains(e.target) && !dropdown.contains(e.target)) {
+          dropdown.style.display = 'none';
+          document.removeEventListener('click', closeDropdown);
+        }
+      });
+    }
+
+    // Column visibility handlers
     const checkboxes = document.querySelectorAll('#hideColumnsCheckboxes input[type="checkbox"]');
     const table = document.querySelector('#targetsTable');
 
@@ -470,10 +1169,6 @@
           row.children[index].style.display = checkbox.checked ? '' : 'none';
         });
       });
-      if (checkbox.value === 'description') {
-        checkbox.checked = false;
-        checkbox.dispatchEvent(new Event('change'));
-      }
     });
 
 
@@ -488,10 +1183,648 @@
       });
     });
 
+    // Save Changes
+    async function saveChanges() {
+      try {
+        const response = await fetch('/save', { method: 'POST' });
+        const data = await response.json();
+        showToast('Changes saved successfully!', 'info');
+        updateUnsavedChanges(false);
+        loadTargets(); // Refresh the table
+      } catch (error) {
+        console.error('Error saving changes:', error);
+        showToast('Error saving changes. Please try again.', 'error');
+      }
+    }
 
+    // Discard Changes
+    async function discardChanges() {
+      try {
+        const response = await fetch('/discard', { method: 'POST' });
+        const data = await response.json();
+        showToast('Changes discarded', 'info');
+        updateUnsavedChanges(false);
+        loadTargets(); // Refresh the table
+      } catch (error) {
+        console.error('Error discarding changes:', error);
+        showToast('Error discarding changes. Please try again.', 'error');
+      }
+    }
+
+    // CSV Preview and Import functionality
+    let csvRows = [];
+    let detectedDelimiter = ',';
+    const requiredFields = ['address', 'instance', 'module', 'zone', 'service', 'device_type', 
+                          'connection_type', 'location', 'short_name', 'target_name'];
+    
+    // Function to detect CSV delimiter
+    function detectDelimiter(csvText) {
+      const delimiters = [',', ';', '\t', '|'];
+      const firstLine = csvText.split('\n')[0];
+      
+      let bestDelimiter = ',';
+      let maxCount = 0;
+      
+      delimiters.forEach(delimiter => {
+        const count = (firstLine.match(new RegExp('\\' + delimiter, 'g')) || []).length;
+        if (count > maxCount) {
+          maxCount = count;
+          bestDelimiter = delimiter;
+        }
+      });
+      
+      return bestDelimiter;
+    }
+    
+    // Function to parse CSV with specified delimiter
+    function parseCSV(csvText, delimiter) {
+      const lines = csvText.split('\n');
+      const result = [];
+      
+      for (let line of lines) {
+        if (line.trim() === '') continue;
+        
+        const row = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === delimiter && !inQuotes) {
+            row.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        
+        row.push(current.trim());
+        result.push(row);
+      }
+      
+      return result;
+    }
+    
+    async function importFromCSV() {
+      try {
+        if (csvRows.length === 0) {
+          showToast('Please select a CSV file first', 'error');
+          return;
+        }
+
+        const fileHeaders = csvRows[0].map(header => header.toLowerCase());
+        let importedCount = 0;
+        let errorCount = 0;
+        const errors = [];
+
+        // Check for duplicates within the CSV itself
+        const seenAddresses = new Set();
+        const duplicatesInCSV = [];
+
+        for (let i = 1; i < csvRows.length; i++) {
+          if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
+          const instanceIndex = fileHeaders.indexOf('instance');
+          const targetAddress = csvRows[i][instanceIndex];
+          
+          if (seenAddresses.has(targetAddress)) {
+            duplicatesInCSV.push({
+              row: i + 1,
+              address: targetAddress,
+              target_name: csvRows[i][fileHeaders.indexOf('target_name')]
+            });
+          } else {
+            seenAddresses.add(targetAddress);
+          }
+        }
+
+        // Handle duplicates found within the CSV
+        if (duplicatesInCSV.length > 0) {
+          duplicatesInCSV.forEach(dup => {
+            errorCount++;
+            const errorMsg = `Row ${dup.row} (${dup.target_name}): Duplicate target address "${dup.address}" found within the CSV`;
+            errors.push(errorMsg);
+          });
+          
+          showValidationMessage(
+            `Found ${duplicatesInCSV.length} duplicate target addresses within the CSV file. Check error details below.`, 
+            true
+          );
+
+          // Update error display
+          document.getElementById('errorCount').textContent = errorCount;
+          document.getElementById('totalCount').textContent = csvRows.length - 1;
+          document.getElementById('importSummary').style.display = 'block';
+          const errorList = document.getElementById('errorList');
+          const errorDetails = document.getElementById('errorDetails');
+          errorDetails.innerHTML = errors.map(err => `<div class="error-item">${err}</div>`).join('');
+          errorList.style.display = 'block';
+          return;
+        }
+
+        // First, collect all target addresses from the CSV for database check
+        const csvTargetAddresses = Array.from(seenAddresses);
+
+        // Check all addresses against the database at once
+        const response = await fetch('/check_addresses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ addresses: csvTargetAddresses })
+        });
+        
+        const existingAddresses = await response.json();
+        
+        if (existingAddresses.duplicates && existingAddresses.duplicates.length > 0) {
+          existingAddresses.duplicates.forEach(address => {
+            const rowIndex = csvRows.findIndex((row, index) => 
+              index > 0 && row[fileHeaders.indexOf('instance')] === address
+            );
+            if (rowIndex !== -1) {
+              errorCount++;
+              const rowData = {};
+              fileHeaders.forEach((header, index) => {
+                rowData[header] = csvRows[rowIndex][index] || '';
+              });
+              const errorMsg = `Row ${rowIndex} (${rowData.target_name}): Target address "${address}" already exists in database`;
+              errors.push(errorMsg);
+            }
+          });
+
+          showValidationMessage(
+            `Found ${existingAddresses.duplicates.length} duplicate target addresses in database. Check error details below.`, 
+            true
+          );
+
+          document.getElementById('errorCount').textContent = errorCount;
+          document.getElementById('totalCount').textContent = csvRows.length - 1;
+          document.getElementById('importSummary').style.display = 'block';
+          
+          const errorList = document.getElementById('errorList');
+          const errorDetails = document.getElementById('errorDetails');
+          errorDetails.innerHTML = errors.map(err => `<div class="error-item">${err}</div>`).join('');
+          errorList.style.display = 'block';
+
+          if (!confirm('Some target addresses already exist in the database. Do you want to continue importing only the new addresses?')) {
+            return;
+          }
+        }
+
+        // Hide the preview table and show loading state
+        document.getElementById('previewTable').style.display = 'none';
+        showValidationMessage('Importing targets...', false);
+
+        // Process each row
+        for (let i = 1; i < csvRows.length; i++) {
+          if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
+          
+          const currentAddress = csvRows[i][fileHeaders.indexOf('instance')];
+          if (existingAddresses.duplicates && existingAddresses.duplicates.includes(currentAddress)) {
+            continue;
+          }
+
+          const rowData = {};
+          fileHeaders.forEach((header, index) => {
+            rowData[header] = csvRows[i][index] || '';
+          });
+
+          try {
+            const formData = new FormData();
+            for (const [key, value] of Object.entries(rowData)) {
+              formData.append(key, value);
+            }
+
+            const response = await fetch('/target', {
+              method: 'POST',
+              body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+              errorCount++;
+              const errorMsg = `Row ${i + 1} (${rowData.target_name}): ${data.message || response.statusText}`;
+              errors.push(errorMsg);
+            } else {
+              importedCount++;
+            }
+          } catch (error) {
+            errorCount++;
+            const errorMsg = `Row ${i + 1} (${rowData.target_name}): ${error.message}`;
+            errors.push(errorMsg);
+          }
+        }
+
+        // Update the summary section
+        document.getElementById('successCount').textContent = importedCount;
+        document.getElementById('errorCount').textContent = errorCount;
+        document.getElementById('totalCount').textContent = importedCount + errorCount;
+
+        // Show error details if there are any
+        const errorList = document.getElementById('errorList');
+        const errorDetails = document.getElementById('errorDetails');
+        
+        if (errors.length > 0) {
+          errorDetails.innerHTML = errors.map(err => `<div class="error-item">${err}</div>`).join('');
+          errorList.style.display = 'block';
+        } else {
+          errorList.style.display = 'none';
+        }
+
+        // Show the summary section
+        document.getElementById('importSummary').style.display = 'block';
+        
+        // Update validation message
+        if (errorCount > 0) {
+          showValidationMessage(`Import completed with ${errorCount} errors. ${importedCount} rows imported successfully.`, true);
+        } else {
+          showValidationMessage(`Successfully imported ${importedCount} rows`, false);
+        }
+        
+        updateUnsavedChanges(true);
+        loadTargets();
+      } catch (error) {
+        console.error('Import error:', error);
+        showToast('Error during import process. Please try again.', 'error');
+      }
+    }
+    
+    function showValidationMessage(message, isError = false) {
+      const validationDiv = document.getElementById('validationMessage');
+      validationDiv.className = `validation-message ${isError ? 'error' : 'success'}`;
+      validationDiv.textContent = message;
+    }
+
+    function closeImportModal() {
+      document.getElementById('importModal').style.display = 'none';
+      document.getElementById('csvFileInput').value = '';
+      document.getElementById('previewSection').style.display = 'none';
+      document.getElementById('validationMessage').textContent = '';
+      document.getElementById('importSummary').style.display = 'none';
+      document.getElementById('previewTable').style.display = 'table';
+      csvRows = [];
+    }
+
+    // Modal control functions
+    function openAddTargetModal() {
+      document.getElementById('addTargetOptionsModal').style.display = 'block';
+    }
+
+    function closeAddTargetModal() {
+      document.getElementById('addTargetOptionsModal').style.display = 'none';
+    }
+
+    function openAddTargetManuallyModal() {
+      document.getElementById('addTargetManuallyModal').style.display = 'block';
+    }
+
+    function closeAddTargetManuallyModal() {
+      document.getElementById('addTargetManuallyModal').style.display = 'none';
+      // Clear the form when closing
+      document.getElementById('addTargetForm').reset();
+    }
+
+    // Close modal if clicking outside of it
+    window.onclick = function(event) {
+      const importModal = document.getElementById('importModal');
+      const addTargetModal = document.getElementById('addTargetOptionsModal');
+      const addTargetManuallyModal = document.getElementById('addTargetManuallyModal');
+      
+      if (event.target === importModal) {
+        closeImportModal();
+      }
+      if (event.target === addTargetModal) {
+        closeAddTargetModal();
+      }
+      if (event.target === addTargetManuallyModal) {
+        closeAddTargetManuallyModal();
+      }
+    };
+
+    function previewCSV(input) {
+      const file = input.files[0];
+      if (!file) {
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const csvData = event.target.result;
+        
+        // Get selected delimiter or auto-detect
+        const delimiterSelect = document.getElementById('delimiterSelect');
+        let delimiter = delimiterSelect.value;
+        
+        if (delimiter === 'auto') {
+          delimiter = detectDelimiter(csvData);
+          detectedDelimiter = delimiter;
+          
+          // Update the dropdown to show detected delimiter
+          const options = delimiterSelect.options;
+          for (let i = 0; i < options.length; i++) {
+            if (options[i].value === delimiter) {
+              delimiterSelect.selectedIndex = i;
+              break;
+            }
+          }
+        } else {
+          detectedDelimiter = delimiter;
+        }
+        
+        // Parse CSV with the determined delimiter
+        csvRows = parseCSV(csvData, delimiter);
+        const headers = csvRows[0].map(header => header.toLowerCase());
+        
+        // Validate headers
+        const missingFields = requiredFields.filter(field => !headers.includes(field));
+        const previewSection = document.getElementById('previewSection');
+        
+        if (missingFields.length > 0) {
+          showValidationMessage(`Missing required columns: ${missingFields.join(', ')}`, true);
+          previewSection.style.display = 'none';
+          return;
+        }
+
+        // Show success message
+        showValidationMessage(`CSV file is valid - ${csvRows.length - 1} rows found`, false);
+
+        // Create preview table
+        const previewTable = document.getElementById('previewTable');
+        previewTable.innerHTML = '';
+
+        // Add header row
+        const headerRow = document.createElement('tr');
+        headers.forEach(header => {
+          const th = document.createElement('th');
+          th.textContent = header;
+          headerRow.appendChild(th);
+        });
+        previewTable.appendChild(headerRow);
+
+        // Add first 5 data rows
+        const rowsToShow = Math.min(5, csvRows.length - 1);
+        for (let i = 1; i <= rowsToShow; i++) {
+          if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
+          const row = document.createElement('tr');
+          csvRows[i].forEach(cell => {
+            const td = document.createElement('td');
+            td.textContent = cell;
+            row.appendChild(td);
+          });
+          previewTable.appendChild(row);
+        }
+
+        // Show preview section
+        previewSection.style.display = 'block';
+      };
+      
+      reader.readAsText(file);
+    }
+
+    // Add event listener for delimiter change
+    document.getElementById('delimiterSelect').addEventListener('change', function() {
+      const fileInput = document.getElementById('csvFileInput');
+      if (fileInput.files[0]) {
+        previewCSV(fileInput);
+      }
+    });
+
+    async function importFromCSV() {
+      try {
+        if (csvRows.length === 0) {
+          showToast('Please select a CSV file first', 'error');
+          return;
+        }
+
+        const fileHeaders = csvRows[0].map(header => header.toLowerCase());
+        let importedCount = 0;
+        let errorCount = 0;
+        const errors = [];
+
+      // First, collect all target addresses from the CSV
+      const csvTargetAddresses = [];
+      for (let i = 1; i < csvRows.length; i++) {
+        if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
+        const instanceIndex = fileHeaders.indexOf('instance');
+        const targetAddress = csvRows[i][instanceIndex];
+        if (targetAddress) {
+          csvTargetAddresses.push(targetAddress);
+        }
+      }
+
+      // Check all addresses against the database at once
+      const response = await fetch('/check_addresses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ addresses: csvTargetAddresses })
+      });
+        
+        const existingAddresses = await response.json();
+        
+        if (existingAddresses.duplicates && existingAddresses.duplicates.length > 0) {
+          // Add errors for all existing addresses
+          existingAddresses.duplicates.forEach(address => {
+            const rowIndex = csvRows.findIndex((row, index) => 
+              index > 0 && row[fileHeaders.indexOf('instance')] === address
+            );
+            if (rowIndex !== -1) {
+              errorCount++;
+              const rowData = {};
+              fileHeaders.forEach((header, index) => {
+                rowData[header] = csvRows[rowIndex][index] || '';
+              });
+              const errorMsg = `Row ${rowIndex} (${rowData.target_name}): Target address "${address}" already exists in database`;
+              errors.push(errorMsg);
+            }
+          });
+          
+          // Show validation message with duplicate count
+          showValidationMessage(
+            `Found ${existingAddresses.duplicates.length} duplicate target addresses in database. Check error details below.`, 
+            true
+          );
+          
+          // Update the summary section early to show duplicates
+          document.getElementById('errorCount').textContent = errorCount;
+          document.getElementById('totalCount').textContent = csvTargetAddresses.length;
+          document.getElementById('importSummary').style.display = 'block';
+          
+          // Show error details
+          const errorList = document.getElementById('errorList');
+          const errorDetails = document.getElementById('errorDetails');
+          errorDetails.innerHTML = errors.map(err => `<div class="error-item">${err}</div>`).join('');
+          errorList.style.display = 'block';
+          
+          // Ask user if they want to continue with non-duplicate addresses
+          if (!confirm('Some target addresses already exist in the database. Do you want to continue importing only the new addresses?')) {
+            return;
+          }
+        }
+
+      // Hide the preview table and show loading state
+      document.getElementById('previewTable').style.display = 'none';
+      showValidationMessage('Importing targets...', false);
+
+      // Check for duplicates within the CSV itself
+      const seenAddresses = new Set();
+      const duplicatesInCSV = [];
+
+      for (let i = 1; i < csvRows.length; i++) {
+        if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
+        const instanceIndex = fileHeaders.indexOf('instance');
+        const targetAddress = csvRows[i][instanceIndex];
+        
+        if (seenAddresses.has(targetAddress)) {
+          duplicatesInCSV.push({
+            row: i + 1,
+            address: targetAddress,
+            target_name: csvRows[i][fileHeaders.indexOf('target_name')]
+          });
+        } else {
+          seenAddresses.add(targetAddress);
+        }
+      }
+
+      // Handle duplicates found within the CSV
+      if (duplicatesInCSV.length > 0) {
+        duplicatesInCSV.forEach(dup => {
+          errorCount++;
+          const errorMsg = `Row ${dup.row} (${dup.target_name}): Duplicate target address "${dup.address}" found within the CSV`;
+          errors.push(errorMsg);
+        });
+        
+        // Show validation message with duplicate count
+        showValidationMessage(
+          `Found ${duplicatesInCSV.length} duplicate target addresses within the CSV file. Check error details below.`, 
+          true
+        );
+        return;
+      }
+
+      // Process each row after validation
+      for (let i = 1; i < csvRows.length; i++) {
+        if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
+        
+        // Skip rows with addresses that exist in the database
+        const currentAddress = csvRows[i][fileHeaders.indexOf('instance')];
+        if (existingAddresses.duplicates && existingAddresses.duplicates.includes(currentAddress)) {
+          continue;
+        }
+        
+        const rowData = {};
+        fileHeaders.forEach((header, index) => {
+          rowData[header] = csvRows[i][index] || '';
+        });
+
+        try {
+          const formData = new FormData();
+          for (const [key, value] of Object.entries(rowData)) {
+            formData.append(key, value);
+          }
+
+          const response = await fetch('/target', {
+            method: 'POST',
+            body: formData
+          });
+          
+          const data = await response.json();
+          
+          if (!response.ok) {
+            errorCount++;
+            let errorMsg;
+            if (data.error === 'DUPLICATE_TARGET') {
+              errorMsg = `Row ${i + 1} (${rowData.target_name}): Target address "${rowData.instance}" already exists in database`;
+            } else {
+              errorMsg = `Row ${i + 1} (${rowData.target_name}): ${data.message || response.statusText}`;
+            }
+            errors.push(errorMsg);
+            console.error(errorMsg);
+          } else {
+            importedCount++;
+          }
+        } catch (error) {
+          errorCount++;
+          const errorMsg = `Row ${i + 1} (${rowData.target_name}): ${error.message}`;
+          errors.push(errorMsg);
+          console.error(errorMsg);
+        }
+      }
+        // Update the summary section
+        document.getElementById('successCount').textContent = importedCount;
+        document.getElementById('totalCount').textContent = importedCount + errorCount;
+  
+        // Show error details if there are any
+        const errorList = document.getElementById('errorList');
+        const errorDetails = document.getElementById('errorDetails');
+        
+        if (errors.length > 0) {
+          errorDetails.innerHTML = errors.map(err => `<div class="error-item">${err}</div>`).join('');
+          errorList.style.display = 'block';
+        } else {
+          errorList.style.display = 'none';
+        }
+  
+        // Show the summary section
+        document.getElementById('importSummary').style.display = 'block';
+        
+        // Update validation message
+        if (errorCount > 0) {
+          showValidationMessage(`Import completed with ${errorCount} errors. ${importedCount} rows imported successfully.`, true);
+        } else {
+          showValidationMessage(`Successfully imported ${importedCount} rows`, false);
+        }
+        
+        updateUnsavedChanges(true);
+        loadTargets();
+  
+      } catch (error) {
+        console.error('Error updating UI:', error);
+        showToast('Error updating the interface. Please try again.', 'error');
+      }
+    }
+
+    // Download CSV template
+    async function downloadTemplate(e) {
+      try {
+        e.preventDefault();
+        const templateHeaders = ['address', 'instance', 'module', 'zone', 'service', 'device_type', 
+                        'connection_type', 'location', 'geohash', 'short_name', 'target_name'];
+        const example = [
+          'prometheus:9115', '192.168.1.1', 'icmp', 'INT', 'BACKBONE', 'ROUTER', 
+          'FO', 'DC1', 'abc123', 'RTR-01', 'Core Router 01'
+        ];
+        
+        const csv = [
+          templateHeaders.join(','),
+          example.join(',')
+        ].join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'blackbox_targets_template.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (error) {
+        console.error('Error downloading template:', error);
+        showToast('Error downloading template. Please try again.', 'error');
+      }
+    }
+
+    document.getElementById('downloadTemplate').addEventListener('click', downloadTemplate);
+
+    // Modal control functions
+    function openImportModal() {
+      document.getElementById('importModal').style.display = 'block';
+    }
   </script>
-  
-  
 </body>
-
 </html>
