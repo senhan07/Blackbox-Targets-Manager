@@ -657,11 +657,13 @@
   <div class="header">
     <h1 class="header-title">Blackbox Targets Manager</h1>
     <div class="header-actions">
-      <input type="text" id="searchInput" placeholder="Type anything to search targets...">
-      <button onclick="openAddTargetModal()" class="header-button primary">
-        <i class="fas fa-plus"></i> Add Target
-      </button>
-      <button onclick="saveChanges()" class="header-button generate">Save & Generate YAML</button>
+        <input type="text" id="searchInput" placeholder="Type anything to search targets...">
+        <button onclick="openAddTargetModal()" class="header-button primary">
+            <i class="fas fa-plus"></i> Add Target
+        </button>
+        <button onclick="saveChanges()" class="header-button generate">Save & Generate YAML</button>
+        <a href="/users" class="header-button" style="text-decoration: none;"><i class="fas fa-user"></i> {{ username }}</a>
+        <a href="/logout" class="header-button" style="text-decoration: none;"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
   </div>
 
