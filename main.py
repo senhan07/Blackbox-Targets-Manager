@@ -31,6 +31,7 @@ def login():
 
         if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
+            session['username'] = user['username']
             return redirect(url_for('index'))
         else:
             flash('Invalid username or password')
@@ -39,28 +40,27 @@ def login():
 
 @app.route('/logout')
 def logout():
-    session.pop('user_id', None)
+    session.clear()
     return redirect(url_for('login'))
 
 @app.route('/')
 def index():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    return render_template('index.html')
+    return render_template('index.html', username=session.get('username'))
 
 
 @app.route('/targets', methods=['GET'])
 def get_targets():
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
-    # Get fresh from database if no temp changes exist
     has_temp_changes = len(db.temp_changes['added']) > 0 or \
                       len(db.temp_changes['deleted']) > 0 or \
                       len(db.temp_changes['toggled']) > 0
 
     targets = db.get_all_targets(use_temp=has_temp_changes)
     if not has_temp_changes:
-        db.load_targets_to_temp()  # Refresh temp storage with database state
+        db.load_targets_to_temp()
     return jsonify(targets)
 
 
@@ -76,7 +76,6 @@ def check_addresses():
     if not isinstance(addresses, list):
         return jsonify({'error': 'Addresses must be provided as a list'}), 400
 
-    # Check for duplicate addresses in database
     duplicates = db.check_duplicate_addresses(addresses)
     return jsonify({'duplicates': duplicates})
 
@@ -104,7 +103,6 @@ def add_target():
 def save_changes():
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
-    """Save all changes and generate YAML file"""
     if db.save_changes():
         generate_yaml_file()
         return jsonify({"message": "Changes saved and YAML generated successfully"})
@@ -115,7 +113,6 @@ def save_changes():
 def discard_changes():
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
-    """Discard all temporary changes"""
     if db.discard_changes():
         return jsonify({"message": "Changes discarded successfully"})
     return jsonify({"message": "Error discarding changes"}), 500
@@ -138,28 +135,36 @@ def toggle_target(id):
         return jsonify({"message": "Target toggled successfully (not saved)"})
     return jsonify({"message": "Target not found"}), 404
 
-
 @app.route('/users', methods=['GET'])
 def users_page():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     users = db.get_all_users()
-    return render_template('users.html', users=users)
+    return render_template('users.html', users=users, current_user_id=session.get('user_id'))
 
 @app.route('/users/create', methods=['POST'])
 def create_user_route():
     if 'user_id' not in session:
         return redirect(url_for('login'))
+
     username = request.form.get('username')
     password = request.form.get('password')
-    if username and password:
-        hashed_password = generate_password_hash(password)
-        if db.create_user(username, hashed_password):
-            flash('User created successfully!')
-        else:
-            flash('Username already exists.')
+    confirm_password = request.form.get('confirm_password')
+
+    if not all([username, password, confirm_password]):
+        flash('All fields are required.')
+        return redirect(url_for('users_page'))
+
+    if password != confirm_password:
+        flash('Passwords do not match.')
+        return redirect(url_for('users_page'))
+
+    hashed_password = generate_password_hash(password)
+    if db.create_user(username, hashed_password):
+        flash('User created successfully!')
     else:
-        flash('Username and password are required.')
+        flash('Username already exists.')
+
     return redirect(url_for('users_page'))
 
 @app.route('/users/delete/<int:user_id>', methods=['POST'])
@@ -167,12 +172,10 @@ def delete_user_route(user_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
-    # Prevent a user from deleting themselves
     if user_id == session.get('user_id'):
         flash("You cannot delete your own account.")
         return redirect(url_for('users_page'))
 
-    # Prevent deleting the last user
     if len(db.get_all_users()) <= 1:
         flash('Cannot delete the last user.')
         return redirect(url_for('users_page'))
@@ -182,6 +185,39 @@ def delete_user_route(user_id):
     else:
         flash('Error deleting user.')
     return redirect(url_for('users_page'))
+
+
+@app.route('/users/change-password/<int:user_id>', methods=['GET', 'POST'])
+def change_password_route(user_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user = db.get_user_by_id(user_id)
+    if not user:
+        flash('User not found.')
+        return redirect(url_for('users_page'))
+
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        if not new_password or not confirm_password:
+            flash('Both password fields are required.')
+            return render_template('change_password.html', user_id=user_id, username=user['username'])
+
+        if new_password != confirm_password:
+            flash('New passwords do not match.')
+            return render_template('change_password.html', user_id=user_id, username=user['username'])
+
+        hashed_password = generate_password_hash(new_password)
+        if db.update_user_password(user_id, hashed_password):
+            flash('Password updated successfully!')
+            return redirect(url_for('users_page'))
+        else:
+            flash('Error updating password.')
+            return render_template('change_password.html', user_id=user_id, username=user['username'])
+
+    return render_template('change_password.html', user_id=user_id, username=user['username'])
 
 
 if __name__ == '__main__':

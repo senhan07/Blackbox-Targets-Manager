@@ -91,6 +91,22 @@ class Database:
             cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
             return cursor.fetchone()
 
+    def get_user_by_id(self, user_id):
+        """Get a user by their ID"""
+        with sqlite3.connect(self.db_file) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+            return cursor.fetchone()
+
+    def update_user_password(self, user_id, new_password):
+        """Update a user's password"""
+        with sqlite3.connect(self.db_file) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE users SET password = ? WHERE id = ?', (new_password, user_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
     def add_target(self, target_data):
         """Add target to temporary storage"""
         # Create a temporary ID for new targets (negative to avoid conflicts)
