@@ -73,6 +73,17 @@
 </head>
 <body>
     <div class="container">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alert alert-danger">
+                    <ul>
+                        {% for message in messages %}
+                            <li>{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        {% endwith %}
         <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
         <h1>User Management</h1>
 
