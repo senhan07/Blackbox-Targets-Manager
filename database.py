@@ -43,9 +43,7 @@ class Database:
                     device_type TEXT,
                     connection_type TEXT,
                     location TEXT,
-                    geohash TEXT,
                     short_name TEXT NOT NULL,
-                    target_name TEXT NOT NULL,
                     enabled INTEGER DEFAULT 1
                 )
             ''')
@@ -66,8 +64,6 @@ class Database:
             'connection_type': target_data['connection_type'],
             'location': target_data['location'],
             'short_name': target_data['short_name'],
-            'geohash': target_data['geohash'],
-            'target_name': target_data['target_name'],
             'enabled': 1
         }
         self.temp_targets.append(new_target)
@@ -150,9 +146,9 @@ class Database:
                 cursor.execute('''
                     INSERT INTO targets (
                         address, instance, module, zone, service,
-                        device_type, connection_type, location, geohash,
-                        short_name, target_name, enabled
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        device_type, connection_type, location,
+                        short_name, enabled
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     target['address'],
                     target['instance'],
@@ -162,9 +158,7 @@ class Database:
                     target['device_type'],
                     target['connection_type'],
                     target['location'],
-                    target['geohash'],
                     target['short_name'],
-                    target['target_name'],
                     target['enabled']
                 ))
                 
@@ -185,8 +179,8 @@ class Database:
         for target in targets:
             target_line = f"  {'# ' if not target['enabled'] else ''}- {target['address']};{target['instance']};" \
                          f"{target['module']};{target['zone']};{target['service']};{target['device_type']};" \
-                         f"{target['connection_type']};{target['location']};{target['geohash']};" \
-                         f"{target['short_name']};{target['target_name']}"
+                         f"{target['connection_type']};{target['location']};" \
+                         f"{target['short_name']}"
             yaml_lines.append(target_line)
         
         return "\n".join(yaml_lines)

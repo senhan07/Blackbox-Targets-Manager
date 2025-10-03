@@ -359,7 +359,8 @@
     }
 
     th, td {
-      padding: 10px 12px;
+      padding: 5px 5px;
+      padding-left: 20px;
       text-align: left;
       border-bottom: 1px solid #ddd;
     }
@@ -751,64 +752,64 @@
       </div>
       <div class="modal-body">
         <form id="addTargetForm">
-          <input type="text" name="address" placeholder="Prometheus Server (IP:PORT)" required>
-          <input type="text" name="instance" placeholder="Target Address" required>
+          <input type="text" name="address" placeholder="Blackbox Prober (IP:PORT)" value="127.0.0.1:9115" required>
+          <input type="text" name="instance" placeholder="Target Address (Domain or IP)" required>
           <select name="module" required>
-            <option value="" disabled selected>Select Module</option>
-            <option value="dns">DNS</option>
+            <option value="" disabled selected>Select probe module</option>
+            <option value="dns" disabled>DNS</option>
             <option value="icmp">ICMP</option>
-            <option value="http_2xx">HTTP_2xx</option>
+            <option value="http_2xx" disabled>HTTP_2xx</option>
           </select>
           <select name="zone">
             <option value="" disabled selected>Select Zone</option>
-            <option value="INT">INTERNAL</option>
-            <option value="EXT">EXTERNAL</option>
+            <option value="INT">Internal (Inside Infra)</option>
+            <option value="EXT">External (Not Managed)</option>
           </select>
-          <select name="service" id="service" required>
-            <option value="" disabled selected>Select Service</option>
-            <option value="BACKBONE">BACKBONE</option>
-            <option value="UPLINK">UPLINK</option>
-            <option value="DNS">DNS</option>
-            <option value="SERVER">SERVER</option>
-            <option value="HOST">HOST</option>
-            <option value="CPE">CPE</option>
-            <option value="SEGMENT">SEGMENT</option>
-            <option value="EXTERNAL">EXTERNAL</option>
-          </select>
-          <select name="device_type" id="device_type" required>
+          <small id="service-note" style="display:none; color:rgb(255, 0, 0);">
+            [REQUIRED] Add 2 octets at the end, e.g., CPE-10.24
+          </small>
+          <input list="service-options" name="service" id="service" required placeholder="Select or type service">
+            <datalist id="service-options">
+            <option value="BACKBONE">
+            <option value="UPLINK">
+            <option value="DNS">
+            <option value="WEB">
+            <option value="HOST">
+            <option value="CPE">ex. CPE-10.24</option>
+            <option value="RDMT">ex. RDMT-10.24</option>
+            <option value="RDSL">ex. RDSL-10.24</option>
+            <option value="SEGMENT">ex. SEGMENT-10.24</option>
+          </datalist>          
+          <input list="device-type-options" name="device_type" id="device_type" required placeholder="Select or type device type">
+          <datalist id="device-type-options">
             <option value="" disabled selected>Select Device Type</option>
             <option value="ROUTER">ROUTER</option>
             <option value="SWITCH">SWITCH</option>
             <option value="FIREWALL">FIREWALL</option>
-            <option value="LOADBALANCER">LOADBALANCER</option>
+            <option value="AP">AP</option>
             <option value="RADIO">RADIO</option>
-            <option value="ONT">ONT</option>
             <option value="SERVER">SERVER</option>
-            <option value="VM">VM</option>
-            <option value="EXTERNAL">EXTERNAL</option>
-          </select>
+            <option value="HOST">HOST</option>
+          </datalist>
           <select name="connection_type" id="connection_type" required>
-            <option value="" disabled selected>Select Medium</option>
+            <option value="" disabled selected>Select Connection Type</option>
             <option value="FO">FO</option>
-            <option value="WIRELESS">WIRELESS</option>
+            <option value="WIRELESS">RADIO</option>
             <option value="LAN">LAN</option>
-            <option value="VPN">VPN</option>
-            <option value="UNKNOWN">UNKNOWN</option>
           </select>
           <input type="text" name="location" placeholder="Location" required>
-          <input type="text" name="geohash" placeholder="Geohash" >
           <input type="text" name="short_name" placeholder="Short Name" required>
-          <input type="text" name="target_name" placeholder="Target Name" required>
           <button type="submit">Add Target</button>
         </form>
       </div>
     </div>
   </div>
 
+  
   <div class="main-content">
 
   <div id="hideColumnsCheckboxes">
-    <label class="checkbox-label"><input type="checkbox" value="address" checked> Prometheus Server</label>
+    <label class="checkbox-label"><input type="checkbox" value="address" checked> Prober Server</label>
     <label class="checkbox-label"><input type="checkbox" value="instance" checked> Target Address</label>
     <label class="checkbox-label"><input type="checkbox" value="module" checked> Module</label>
     <label class="checkbox-label"><input type="checkbox" value="zone" checked> Zone</label>
@@ -816,26 +817,22 @@
     <label class="checkbox-label"><input type="checkbox" value="device_type" checked> Device Type</label>
     <label class="checkbox-label"><input type="checkbox" value="connection_type" checked> Connection Type</label>
     <label class="checkbox-label"><input type="checkbox" value="location" checked> Location</label>
-    <label class="checkbox-label"><input type="checkbox" value="geohash" checked> Geohash</label>
     <label class="checkbox-label"><input type="checkbox" value="short_name" checked> Short Name</label>
-    <label class="checkbox-label"><input type="checkbox" value="target_name" checked> Target Name</label>
   </div>
 
   <!-- <h2>Monitored Targets</h2> -->
   <table id="targetsTable">
       <thead>
           <tr>
-        <th data-column="address">Prometheus</th>
+        <th data-column="address">Prober</th>
         <th data-column="instance">Target</th>
         <th data-column="module">Module</th>
         <th data-column="zone">Zone</th>
         <th data-column="service">Service</th>
         <th data-column="device_type">Device</th>
-        <th data-column="connection_type">Medium</th>
+        <th data-column="connection_type">Connection Type </th>
         <th data-column="location">Location</th>
-        <th data-column="geohash">Geohash</th>
         <th data-column="short_name">Short Name</th>
-        <th data-column="target_name">Target Name</th>
         <th data-column="status">Status</th>
         <th style="min-width: 100px;">
           Actions
@@ -944,14 +941,12 @@
             <td>${target.device_type || ''}</td>
             <td>${target.connection_type || ''}</td>
             <td>${target.location}</td>
-            <td>${target.geohash || ''}</td>
             <td>${target.short_name || ''}</td>
-            <td>${target.target_name}</td>
             <td class="${target.enabled ? 'status-enabled' : 'status-disabled'}">${target.enabled ? 'Enabled' : 'Disabled'}</td>
             <td>
               <div class="action-buttons">
                 <button onclick="toggleTarget(${target.id})">On/Off</button>
-                <button onclick="removeTarget(${target.id})">Remove</button>
+                <button color="red" onclick="removeTarget(${target.id})">Remove</button>
               </div>
             </td>
           `;
@@ -999,24 +994,26 @@
       const formData = new FormData(e.target);
 
       // Strip leading/trailing whitespaces for address and instance
-      const prometheusServer = formData.get('address').trim();
+      const proberServer = formData.get('address').trim();
       const targetAddress = formData.get('instance').trim();
+      const targetLocation = formData.get('location').trim();
 
-      // Validate the Service, Device Type, Connection Type, Location, Geohash, Short Name, and Target Name
-      const fieldsToValidate = ['service', 'device_type', 'connection_type', 'location', 'geohash', 'short_name', 'target_name'];
-      const invalidSymbolRegex = /[^a-zA-Z0-9\s]/; // Disallow symbols
+      // Validate the Service, Device Type, Connection Type, Location, Short Name
+      const fieldsToValidate = ['service', 'device_type', 'connection_type', 'location', 'short_name'];
+      const invalidSymbolRegex = /[^a-zA-Z0-9\s.-]/;
 
       for (const field of fieldsToValidate) {
         const value = formData.get(field)?.trim() || '';
         if (invalidSymbolRegex.test(value)) {
-          alert(`The field "${field}" contains invalid symbols.`);
+          alert(`The field "${field}" contains invalid symbols. Only allowed dot (.) and dash (-)`);
           return;
         }
       }
 
       // Update form data with stripped values
-      formData.set('address', prometheusServer);
+      formData.set('address', proberServer);
       formData.set('instance', targetAddress);
+      formData.set('location', targetLocation);
 
       // Submit the data
       const response = await fetch('/target', {
@@ -1174,7 +1171,7 @@
 
     // TRIM WHITESPACE
     document.getElementById('addTargetForm').addEventListener('submit', function(event) {
-      const fields = ['target_name', 'geohash', 'location', 'description'];
+      const fields = ['location', 'short_name'];
       fields.forEach(field => {
         let input = document.querySelector(`input[name="${field}"]`);
         if (input) {
@@ -1215,7 +1212,7 @@
     let csvRows = [];
     let detectedDelimiter = ',';
     const requiredFields = ['address', 'instance', 'module', 'zone', 'service', 'device_type', 
-                          'connection_type', 'location', 'short_name', 'target_name'];
+                          'connection_type', 'location', 'short_name'];
     
     // Function to detect CSV delimiter
     function detectDelimiter(csvText) {
@@ -1293,7 +1290,7 @@
             duplicatesInCSV.push({
               row: i + 1,
               address: targetAddress,
-              target_name: csvRows[i][fileHeaders.indexOf('target_name')]
+              short_name: csvRows[i][fileHeaders.indexOf('short_name')]
             });
           } else {
             seenAddresses.add(targetAddress);
@@ -1304,7 +1301,7 @@
         if (duplicatesInCSV.length > 0) {
           duplicatesInCSV.forEach(dup => {
             errorCount++;
-            const errorMsg = `Row ${dup.row} (${dup.target_name}): Duplicate target address "${dup.address}" found within the CSV`;
+            const errorMsg = `Row ${dup.row} (${dup.short_name}): Duplicate target address "${dup.address}" found within the CSV`;
             errors.push(errorMsg);
           });
           
@@ -1349,7 +1346,7 @@
               fileHeaders.forEach((header, index) => {
                 rowData[header] = csvRows[rowIndex][index] || '';
               });
-              const errorMsg = `Row ${rowIndex} (${rowData.target_name}): Target address "${address}" already exists in database`;
+              const errorMsg = `Row ${rowIndex} (${rowData.short_name}): Target address "${address}" already exists in database`;
               errors.push(errorMsg);
             }
           });
@@ -1406,14 +1403,14 @@
             
             if (!response.ok) {
               errorCount++;
-              const errorMsg = `Row ${i + 1} (${rowData.target_name}): ${data.message || response.statusText}`;
+              const errorMsg = `Row ${i + 1} (${rowData.short_name}): ${data.message || response.statusText}`;
               errors.push(errorMsg);
             } else {
               importedCount++;
             }
           } catch (error) {
             errorCount++;
-            const errorMsg = `Row ${i + 1} (${rowData.target_name}): ${error.message}`;
+            const errorMsg = `Row ${i + 1} (${rowData.short_name}): ${error.message}`;
             errors.push(errorMsg);
           }
         }
@@ -1638,7 +1635,7 @@
               fileHeaders.forEach((header, index) => {
                 rowData[header] = csvRows[rowIndex][index] || '';
               });
-              const errorMsg = `Row ${rowIndex} (${rowData.target_name}): Target address "${address}" already exists in database`;
+              const errorMsg = `Row ${rowIndex} (${rowData.short_name}): Target address "${address}" already exists in database`;
               errors.push(errorMsg);
             }
           });
@@ -1683,7 +1680,7 @@
           duplicatesInCSV.push({
             row: i + 1,
             address: targetAddress,
-            target_name: csvRows[i][fileHeaders.indexOf('target_name')]
+            short_name: csvRows[i][fileHeaders.indexOf('short_name')]
           });
         } else {
           seenAddresses.add(targetAddress);
@@ -1694,7 +1691,7 @@
       if (duplicatesInCSV.length > 0) {
         duplicatesInCSV.forEach(dup => {
           errorCount++;
-          const errorMsg = `Row ${dup.row} (${dup.target_name}): Duplicate target address "${dup.address}" found within the CSV`;
+          const errorMsg = `Row ${dup.row} (${dup.short_name}): Duplicate target address "${dup.address}" found within the CSV`;
           errors.push(errorMsg);
         });
         
@@ -1738,9 +1735,9 @@
             errorCount++;
             let errorMsg;
             if (data.error === 'DUPLICATE_TARGET') {
-              errorMsg = `Row ${i + 1} (${rowData.target_name}): Target address "${rowData.instance}" already exists in database`;
+              errorMsg = `Row ${i + 1} (${rowData.short_name}): Target address "${rowData.instance}" already exists in database`;
             } else {
-              errorMsg = `Row ${i + 1} (${rowData.target_name}): ${data.message || response.statusText}`;
+              errorMsg = `Row ${i + 1} (${rowData.short_name}): ${data.message || response.statusText}`;
             }
             errors.push(errorMsg);
             console.error(errorMsg);
@@ -1749,7 +1746,7 @@
           }
         } catch (error) {
           errorCount++;
-          const errorMsg = `Row ${i + 1} (${rowData.target_name}): ${error.message}`;
+          const errorMsg = `Row ${i + 1} (${rowData.short_name}): ${error.message}`;
           errors.push(errorMsg);
           console.error(errorMsg);
         }
@@ -1793,22 +1790,22 @@
       try {
         e.preventDefault();
         const templateHeaders = ['address', 'instance', 'module', 'zone', 'service', 'device_type', 
-                        'connection_type', 'location', 'geohash', 'short_name', 'target_name'];
+                        'connection_type', 'location', 'short_name'];
         const example = [
-          'prometheus:9115', '192.168.1.1', 'icmp', 'INT', 'BACKBONE', 'ROUTER', 
-          'FO', 'DC1', 'abc123', 'RTR-01', 'Core Router 01'
+          '127.0.0.1:9115', '192.168.1.1', 'icmp', 'INT', 'BACKBONE', 'ROUTER', 
+          'FO', 'DC1', 'abc123', 'RTR-01'
         ];
         
         const csv = [
-          templateHeaders.join(','),
-          example.join(',')
+          templateHeaders.join(';'),
+          example.join(';')
         ].join('\n');
 
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'blackbox_targets_template.csv';
+        a.download = 'targets_template.csv';
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -1825,6 +1822,19 @@
     function openImportModal() {
       document.getElementById('importModal').style.display = 'block';
     }
+  </script>
+
+<script>
+  const serviceInput = document.getElementById('service');
+  const note = document.getElementById('service-note');
+  
+  serviceInput.addEventListener('input', () => {
+    if (serviceInput.value.toUpperCase() === 'CPE','RDMT', 'RDSL', 'SEGMENT') {
+      note.style.display = 'inline';
+    } else {
+      note.style.display = 'none';
+    }
+  });
   </script>
 </body>
 </html>

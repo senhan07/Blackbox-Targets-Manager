@@ -59,9 +59,7 @@ def add_target():
         'device_type': request.form.get('device_type'),
         'connection_type': request.form.get('connection_type'),
         'location': request.form.get('location'),
-        'geohash': request.form.get('geohash'),
-        'short_name': request.form.get('short_name'),
-        'target_name': request.form.get('target_name')
+        'short_name': request.form.get('short_name')
     }
 
     id = db.add_target(target_data)
@@ -100,4 +98,4 @@ def toggle_target(id):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8844)
