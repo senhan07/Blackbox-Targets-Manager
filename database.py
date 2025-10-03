@@ -21,12 +21,12 @@ class Database:
             placeholders = ','.join('?' * len(addresses))
             cursor.execute(f'SELECT instance FROM targets WHERE instance IN ({placeholders})', addresses)
             existing_addresses = [row[0] for row in cursor.fetchall()]
-        
+
         # Also check temporary storage for addresses
-        temp_addresses = [target['instance'] for target in self.temp_targets 
+        temp_addresses = [target['instance'] for target in self.temp_targets
                         if target['id'] > 0 or target['id'] in self.temp_changes['added']]
         existing_addresses.extend([addr for addr in temp_addresses if addr in addresses])
-        
+
         return list(set(existing_addresses))  # Remove duplicates
 
     def init_db(self):
@@ -47,7 +47,49 @@ class Database:
                     enabled INTEGER DEFAULT 1
                 )
             ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL UNIQUE,
+                    password TEXT NOT NULL
+                )
+            ''')
             conn.commit()
+
+    def get_all_users(self):
+        """Get all users from the database"""
+        with sqlite3.connect(self.db_file) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute('SELECT id, username FROM users')
+            return [dict(row) for row in cursor.fetchall()]
+
+    def create_user(self, username, password):
+        """Create a new user"""
+        with sqlite3.connect(self.db_file) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
+                conn.commit()
+                return True
+            except sqlite3.IntegrityError:
+                return False  # Username already exists
+
+    def delete_user(self, user_id):
+        """Delete a user by their ID"""
+        with sqlite3.connect(self.db_file) as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def get_user_by_username(self, username):
+        """Get a user by their username"""
+        with sqlite3.connect(self.db_file) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
+            return cursor.fetchone()
 
     def add_target(self, target_data):
         """Add target to temporary storage"""
@@ -77,7 +119,7 @@ class Database:
         """
         if use_temp:
             return self.temp_targets
-        
+
         with sqlite3.connect(self.db_file) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -103,7 +145,7 @@ class Database:
             # Create fresh copies of targets from database
             self.temp_targets = [dict(row) for row in cursor.fetchall()]
             self.temp_changes = {'added': [], 'deleted': [], 'toggled': []}
-            
+
         # Restore the enabled states from database for toggled items
         for target in self.temp_targets:
             cursor = conn.cursor()
@@ -126,21 +168,21 @@ class Database:
         """Save all temporary changes to database and generate YAML"""
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            
+
             # Apply deletions
             for id in self.temp_changes['deleted']:
                 cursor.execute('DELETE FROM targets WHERE id = ?', (id,))
-            
+
             # Apply toggles
             for id in self.temp_changes['toggled']:
                 for target in self.temp_targets:
                     if target['id'] == id:
                         cursor.execute('''
-                            UPDATE targets 
-                            SET enabled = ? 
+                            UPDATE targets
+                            SET enabled = ?
                             WHERE id = ?
                         ''', (1 if target['enabled'] else 0, id))
-            
+
             # Apply additions
             for target in self.temp_changes['added']:
                 cursor.execute('''
@@ -161,9 +203,9 @@ class Database:
                     target['short_name'],
                     target['enabled']
                 ))
-                
+
             conn.commit()
-        
+
         self.load_targets_to_temp()
         return True
 
@@ -175,12 +217,12 @@ class Database:
     def generate_yaml_content(self):
         targets = self.get_all_targets()
         yaml_lines = ["- targets:"]
-        
+
         for target in targets:
             target_line = f"  {'# ' if not target['enabled'] else ''}- {target['address']};{target['instance']};" \
                          f"{target['module']};{target['zone']};{target['service']};{target['device_type']};" \
                          f"{target['connection_type']};{target['location']};" \
                          f"{target['short_name']}"
             yaml_lines.append(target_line)
-        
+
         return "\n".join(yaml_lines)
