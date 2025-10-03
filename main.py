@@ -14,7 +14,7 @@ db = Database()
 def create_default_user():
     """Create a default admin user if no users exist"""
     if not db.get_all_users():
-        db.create_user('admin', generate_password_hash('admin'))
+        db.create_user('admin', generate_password_hash('admin'), 'admin')
 
 def generate_yaml_file():
     """Generate the YAML file from the database content"""
@@ -32,6 +32,7 @@ def login():
         if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
             session['username'] = user['username']
+            session['role'] = user['role']
             return redirect(url_for('index'))
         else:
             flash('Invalid username or password')
@@ -47,7 +48,7 @@ def logout():
 def index():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    return render_template('index.html', username=session.get('username'))
+    return render_template('index.html', username=session.get('username'), user_role=session.get('role'))
 
 
 @app.route('/targets', methods=['GET'])
@@ -81,7 +82,7 @@ def check_addresses():
 
 @app.route('/target', methods=['POST'])
 def add_target():
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'admin':
         return jsonify({'error': 'Unauthorized'}), 401
     target_data = {
         'address': request.form.get('address'),
@@ -101,7 +102,7 @@ def add_target():
 
 @app.route('/save', methods=['POST'])
 def save_changes():
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'admin':
         return jsonify({'error': 'Unauthorized'}), 401
     if db.save_changes():
         generate_yaml_file()
@@ -111,7 +112,7 @@ def save_changes():
 
 @app.route('/discard', methods=['POST'])
 def discard_changes():
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'admin':
         return jsonify({'error': 'Unauthorized'}), 401
     if db.discard_changes():
         return jsonify({"message": "Changes discarded successfully"})
@@ -120,7 +121,7 @@ def discard_changes():
 
 @app.route('/target/<int:id>', methods=['DELETE'])
 def delete_target(id):
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'admin':
         return jsonify({'error': 'Unauthorized'}), 401
     if db.delete_target(id):
         return jsonify({"message": "Target deleted successfully (not saved)"})
@@ -129,7 +130,7 @@ def delete_target(id):
 
 @app.route('/target/<int:id>/toggle', methods=['POST'])
 def toggle_target(id):
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'admin':
         return jsonify({'error': 'Unauthorized'}), 401
     if db.toggle_target(id):
         return jsonify({"message": "Target toggled successfully (not saved)"})
@@ -137,30 +138,26 @@ def toggle_target(id):
 
 @app.route('/users', methods=['GET'])
 def users_page():
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
     users = db.get_all_users()
     return render_template('users.html', users=users, current_user_id=session.get('user_id'))
 
 @app.route('/users/create', methods=['POST'])
 def create_user_route():
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
 
     username = request.form.get('username')
     password = request.form.get('password')
-    confirm_password = request.form.get('confirm_password')
+    role = request.form.get('role')
 
-    if not all([username, password, confirm_password]):
+    if not all([username, password, role]):
         flash('All fields are required.')
         return redirect(url_for('users_page'))
 
-    if password != confirm_password:
-        flash('Passwords do not match.')
-        return redirect(url_for('users_page'))
-
     hashed_password = generate_password_hash(password)
-    if db.create_user(username, hashed_password):
+    if db.create_user(username, hashed_password, role):
         flash('User created successfully!')
     else:
         flash('Username already exists.')
@@ -169,7 +166,7 @@ def create_user_route():
 
 @app.route('/users/delete/<int:user_id>', methods=['POST'])
 def delete_user_route(user_id):
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
 
     if user_id == session.get('user_id'):
@@ -189,7 +186,7 @@ def delete_user_route(user_id):
 
 @app.route('/users/change-password/<int:user_id>', methods=['GET', 'POST'])
 def change_password_route(user_id):
-    if 'user_id' not in session:
+    if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
 
     user = db.get_user_by_id(user_id)
@@ -205,10 +202,6 @@ def change_password_route(user_id):
             flash('Both password fields are required.')
             return render_template('change_password.html', user_id=user_id, username=user['username'])
 
-        if new_password != confirm_password:
-            flash('New passwords do not match.')
-            return render_template('change_password.html', user_id=user_id, username=user['username'])
-
         hashed_password = generate_password_hash(new_password)
         if db.update_user_password(user_id, hashed_password):
             flash('Password updated successfully!')
@@ -218,6 +211,23 @@ def change_password_route(user_id):
             return render_template('change_password.html', user_id=user_id, username=user['username'])
 
     return render_template('change_password.html', user_id=user_id, username=user['username'])
+
+@app.route('/users/change-role/<int:user_id>', methods=['POST'])
+def change_role_route(user_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+
+    new_role = request.form.get('role')
+    if not new_role or new_role not in ['admin', 'viewer']:
+        flash('Invalid role specified.')
+        return redirect(url_for('users_page'))
+
+    if db.update_user_role(user_id, new_role):
+        flash('User role updated successfully!')
+    else:
+        flash('Error updating user role.')
+
+    return redirect(url_for('users_page'))
 
 
 if __name__ == '__main__':
