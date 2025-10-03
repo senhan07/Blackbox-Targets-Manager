@@ -22,12 +22,11 @@ class Database:
             cursor.execute(f'SELECT instance FROM targets WHERE instance IN ({placeholders})', addresses)
             existing_addresses = [row[0] for row in cursor.fetchall()]
 
-        # Also check temporary storage for addresses
         temp_addresses = [target['instance'] for target in self.temp_targets
                         if target['id'] > 0 or target['id'] in self.temp_changes['added']]
         existing_addresses.extend([addr for addr in temp_addresses if addr in addresses])
 
-        return list(set(existing_addresses))  # Remove duplicates
+        return list(set(existing_addresses))
 
     def init_db(self):
         with sqlite3.connect(self.db_file) as conn:
@@ -51,7 +50,8 @@ class Database:
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT NOT NULL UNIQUE,
-                    password TEXT NOT NULL
+                    password TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'viewer'
                 )
             ''')
             conn.commit()
@@ -61,19 +61,19 @@ class Database:
         with sqlite3.connect(self.db_file) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute('SELECT id, username FROM users')
+            cursor.execute('SELECT id, username, role FROM users')
             return [dict(row) for row in cursor.fetchall()]
 
-    def create_user(self, username, password):
+    def create_user(self, username, password, role='viewer'):
         """Create a new user"""
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
             try:
-                cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
+                cursor.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', (username, password, role))
                 conn.commit()
                 return True
             except sqlite3.IntegrityError:
-                return False  # Username already exists
+                return False
 
     def delete_user(self, user_id):
         """Delete a user by their ID"""
@@ -107,9 +107,16 @@ class Database:
             conn.commit()
             return cursor.rowcount > 0
 
+    def update_user_role(self, user_id, new_role):
+        """Update a user's role"""
+        with sqlite3.connect(self.db_file) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE users SET role = ? WHERE id = ?', (new_role, user_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
     def add_target(self, target_data):
         """Add target to temporary storage"""
-        # Create a temporary ID for new targets (negative to avoid conflicts)
         temp_id = -len(self.temp_changes['added']) - 1
         new_target = {
             'id': temp_id,
@@ -129,10 +136,7 @@ class Database:
         return temp_id
 
     def get_all_targets(self, use_temp=True):
-        """Get all targets from storage
-        Args:
-            use_temp (bool): If True, get from temporary storage, else from database
-        """
+        """Get all targets from storage"""
         if use_temp:
             return self.temp_targets
 
@@ -146,7 +150,7 @@ class Database:
         """Delete target in temporary storage"""
         for i, target in enumerate(self.temp_targets):
             if target['id'] == id:
-                if id > 0:  # Only track deletions for existing targets
+                if id > 0:
                     self.temp_changes['deleted'].append(id)
                 self.temp_targets.pop(i)
                 return True
@@ -158,11 +162,9 @@ class Database:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute('SELECT * FROM targets')
-            # Create fresh copies of targets from database
             self.temp_targets = [dict(row) for row in cursor.fetchall()]
             self.temp_changes = {'added': [], 'deleted': [], 'toggled': []}
 
-        # Restore the enabled states from database for toggled items
         for target in self.temp_targets:
             cursor = conn.cursor()
             cursor.execute('SELECT enabled FROM targets WHERE id = ?', (target['id'],))
@@ -185,11 +187,9 @@ class Database:
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
 
-            # Apply deletions
             for id in self.temp_changes['deleted']:
                 cursor.execute('DELETE FROM targets WHERE id = ?', (id,))
 
-            # Apply toggles
             for id in self.temp_changes['toggled']:
                 for target in self.temp_targets:
                     if target['id'] == id:
@@ -199,7 +199,6 @@ class Database:
                             WHERE id = ?
                         ''', (1 if target['enabled'] else 0, id))
 
-            # Apply additions
             for target in self.temp_changes['added']:
                 cursor.execute('''
                     INSERT INTO targets (

@@ -31,6 +31,7 @@
     .header-actions {
       display: flex;
       gap: 10px;
+      align-items: center;
     }
 
     .header-button {
@@ -653,20 +654,23 @@
 
 <body>
   <div id="toastContainer"></div>
-  
+
   <div class="header">
     <h1 class="header-title">Blackbox Targets Manager</h1>
     <div class="header-actions">
-        <input type="text" id="searchInput" placeholder="Type anything to search targets...">
-        <button onclick="openAddTargetModal()" class="header-button primary">
-            <i class="fas fa-plus"></i> Add Target
-        </button>
-        <button onclick="saveChanges()" class="header-button generate">Save & Generate YAML</button>
-        <a href="/users" class="header-button" style="text-decoration: none;"><i class="fas fa-user"></i> {{ username }}</a>
-        <a href="/logout" class="header-button" style="text-decoration: none;"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      <input type="text" id="searchInput" placeholder="Type anything to search targets...">
+      {% if user_role == 'admin' %}
+      <button onclick="openAddTargetModal()" class="header-button primary">
+        <i class="fas fa-plus"></i> Add Target
+      </button>
+      <button onclick="saveChanges()" class="header-button generate">Save & Generate YAML</button>
+      {% endif %}
+      <a href="/users" class="header-button" style="text-decoration: none;"><i class="fas fa-user"></i> {{ username }}</a>
+      <a href="/logout" class="header-button" style="text-decoration: none;"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
   </div>
 
+  {% if user_role == 'admin' %}
   <!-- Add Target Options Modal -->
   <div id="addTargetOptionsModal" class="modal">
     <div class="modal-content" style="max-width: 500px;">
@@ -781,7 +785,7 @@
             <option value="RDMT">ex. RDMT-10.24</option>
             <option value="RDSL">ex. RDSL-10.24</option>
             <option value="SEGMENT">ex. SEGMENT-10.24</option>
-          </datalist>          
+          </datalist>
           <input list="device-type-options" name="device_type" id="device_type" required placeholder="Select or type device type">
           <datalist id="device-type-options">
             <option value="" disabled selected>Select Device Type</option>
@@ -806,8 +810,8 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
-  
   <div class="main-content">
 
   <div id="hideColumnsCheckboxes">
@@ -836,7 +840,7 @@
         <th data-column="location">Location</th>
         <th data-column="short_name">Short Name</th>
         <th data-column="status">Status</th>
-        <th style="min-width: 100px;">
+        <th id="actions-header" style="min-width: 100px;">
           Actions
           <button onclick="toggleColumnFilter()" class="table-filter-button" title="Show/Hide Columns">
             <i class="fas fa-filter"></i>
@@ -858,6 +862,7 @@
   </footer>
 
   <script>
+    const userRole = '{{ user_role }}';
     // Track unsaved changes
     let hasUnsavedChanges = false;
     let unsavedToast = null;
@@ -867,13 +872,13 @@
       const toastContainer = document.getElementById('toastContainer');
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
-      
+
       let toastContent = `
         <div class="toast-content">${message}</div>
         <div class="toast-buttons">
       `;
 
-      if (type === 'unsaved') {
+      if (type === 'unsaved' && userRole === 'admin') {
         toastContent += `
           <button onclick="discardChanges()">Revert</button>
           <button onclick="saveChanges()" style="background-color: #28a745; color: white;">Save</button>
@@ -898,8 +903,8 @@
 
     function updateUnsavedChanges(hasChanges) {
       hasUnsavedChanges = hasChanges;
-      
-      if (hasChanges) {
+
+      if (hasChanges && userRole === 'admin') {
         if (!unsavedToast) {
           unsavedToast = showToast('You have unsaved changes!', 'unsaved', true);
         }
@@ -934,6 +939,20 @@
 
         targets.forEach(target => {
           const row = document.createElement('tr');
+          let actionsHtml = '';
+          if (userRole === 'admin') {
+              actionsHtml = `
+                <td>
+                  <div class="action-buttons">
+                    <button onclick="toggleTarget(${target.id})">On/Off</button>
+                    <button color="red" onclick="removeTarget(${target.id})">Remove</button>
+                  </div>
+                </td>
+              `;
+          } else {
+              actionsHtml = '<td></td>';
+          }
+
           row.innerHTML = `
             <td>${target.address}</td>
             <td>${target.instance}</td>
@@ -945,12 +964,7 @@
             <td>${target.location}</td>
             <td>${target.short_name || ''}</td>
             <td class="${target.enabled ? 'status-enabled' : 'status-disabled'}">${target.enabled ? 'Enabled' : 'Disabled'}</td>
-            <td>
-              <div class="action-buttons">
-                <button onclick="toggleTarget(${target.id})">On/Off</button>
-                <button color="red" onclick="removeTarget(${target.id})">Remove</button>
-              </div>
-            </td>
+            ${actionsHtml}
           `;
           tbody.appendChild(row);
         });
@@ -963,6 +977,11 @@
         document.getElementById('totalTargets').textContent = totalTargets;
         document.getElementById('enabledTargets').textContent = enabledTargets;
         document.getElementById('disabledTargets').textContent = disabledTargets;
+
+        if (userRole !== 'admin') {
+            document.getElementById('actions-header').style.display = 'none';
+        }
+
       } catch (error) {
         console.error('Error loading targets:', error);
       }
@@ -970,17 +989,20 @@
 
     // Load targets when the page loads
     document.addEventListener('DOMContentLoaded', () => {
-        // Reset any temporary changes on page load
-        fetch('/discard', { method: 'POST' })
-            .then(() => loadTargets())
-            .catch(error => console.error('Error resetting state:', error));
+        if (userRole === 'admin') {
+            fetch('/discard', { method: 'POST' })
+                .then(() => loadTargets())
+                .catch(error => console.error('Error resetting state:', error));
+        } else {
+            loadTargets();
+        }
     });
 
     // SEARCH FEATURE
     document.getElementById('searchInput').addEventListener('input', function() {
       const searchValue = this.value.toLowerCase();
       const rows = document.querySelectorAll('#targetsTable tbody tr');
-      
+
       rows.forEach(row => {
         const cells = Array.from(row.getElementsByTagName('td'));
         const rowText = cells.map(cell => cell.textContent.toLowerCase()).join(' ');
@@ -1025,10 +1047,10 @@
       const data = await response.json();
       showToast(data.message);
       updateUnsavedChanges(true);
-      
+
       // Reload the targets instead of reloading the page
       loadTargets();
-      
+
       // Clear the form and close the modal
       e.target.reset();
       closeAddTargetManuallyModal();
@@ -1083,7 +1105,7 @@
     function sortTable(column) {
       const table = document.getElementById('targetsTable');
       const rows = Array.from(table.querySelectorAll('tbody tr'));
-      
+
       // Toggle the sort direction for the column
       if (sortOrder[column] === 'asc') {
         sortOrder[column] = 'desc';
@@ -1133,7 +1155,7 @@
       const dropdown = document.getElementById('hideColumnsCheckboxes');
       const filterButton = document.querySelector('.table-filter-button');
       const buttonRect = filterButton.getBoundingClientRect();
-      
+
       if (dropdown.style.display !== 'block') {
         dropdown.style.display = 'block';
         dropdown.style.position = 'fixed';
@@ -1142,11 +1164,11 @@
       } else {
         dropdown.style.display = 'none';
       }
-      
+
       // Close dropdown when clicking outside
       document.addEventListener('click', function closeDropdown(e) {
         const dropdown = document.getElementById('hideColumnsCheckboxes');
-        
+
         if (!filterButton.contains(e.target) && !dropdown.contains(e.target)) {
           dropdown.style.display = 'none';
           document.removeEventListener('click', closeDropdown);
@@ -1213,17 +1235,17 @@
     // CSV Preview and Import functionality
     let csvRows = [];
     let detectedDelimiter = ',';
-    const requiredFields = ['address', 'instance', 'module', 'zone', 'service', 'device_type', 
+    const requiredFields = ['address', 'instance', 'module', 'zone', 'service', 'device_type',
                           'connection_type', 'location', 'short_name'];
-    
+
     // Function to detect CSV delimiter
     function detectDelimiter(csvText) {
       const delimiters = [',', ';', '\t', '|'];
       const firstLine = csvText.split('\n')[0];
-      
+
       let bestDelimiter = ',';
       let maxCount = 0;
-      
+
       delimiters.forEach(delimiter => {
         const count = (firstLine.match(new RegExp('\\' + delimiter, 'g')) || []).length;
         if (count > maxCount) {
@@ -1231,25 +1253,25 @@
           bestDelimiter = delimiter;
         }
       });
-      
+
       return bestDelimiter;
     }
-    
+
     // Function to parse CSV with specified delimiter
     function parseCSV(csvText, delimiter) {
       const lines = csvText.split('\n');
       const result = [];
-      
+
       for (let line of lines) {
         if (line.trim() === '') continue;
-        
+
         const row = [];
         let current = '';
         let inQuotes = false;
-        
+
         for (let i = 0; i < line.length; i++) {
           const char = line[i];
-          
+
           if (char === '"') {
             inQuotes = !inQuotes;
           } else if (char === delimiter && !inQuotes) {
@@ -1259,14 +1281,14 @@
             current += char;
           }
         }
-        
+
         row.push(current.trim());
         result.push(row);
       }
-      
+
       return result;
     }
-    
+
     async function importFromCSV() {
       try {
         if (csvRows.length === 0) {
@@ -1287,7 +1309,7 @@
           if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
           const instanceIndex = fileHeaders.indexOf('instance');
           const targetAddress = csvRows[i][instanceIndex];
-          
+
           if (seenAddresses.has(targetAddress)) {
             duplicatesInCSV.push({
               row: i + 1,
@@ -1306,9 +1328,9 @@
             const errorMsg = `Row ${dup.row} (${dup.short_name}): Duplicate target address "${dup.address}" found within the CSV`;
             errors.push(errorMsg);
           });
-          
+
           showValidationMessage(
-            `Found ${duplicatesInCSV.length} duplicate target addresses within the CSV file. Check error details below.`, 
+            `Found ${duplicatesInCSV.length} duplicate target addresses within the CSV file. Check error details below.`,
             true
           );
 
@@ -1334,12 +1356,12 @@
           },
           body: JSON.stringify({ addresses: csvTargetAddresses })
         });
-        
+
         const existingAddresses = await response.json();
-        
+
         if (existingAddresses.duplicates && existingAddresses.duplicates.length > 0) {
           existingAddresses.duplicates.forEach(address => {
-            const rowIndex = csvRows.findIndex((row, index) => 
+            const rowIndex = csvRows.findIndex((row, index) =>
               index > 0 && row[fileHeaders.indexOf('instance')] === address
             );
             if (rowIndex !== -1) {
@@ -1354,14 +1376,14 @@
           });
 
           showValidationMessage(
-            `Found ${existingAddresses.duplicates.length} duplicate target addresses in database. Check error details below.`, 
+            `Found ${existingAddresses.duplicates.length} duplicate target addresses in database. Check error details below.`,
             true
           );
 
           document.getElementById('errorCount').textContent = errorCount;
           document.getElementById('totalCount').textContent = csvRows.length - 1;
           document.getElementById('importSummary').style.display = 'block';
-          
+
           const errorList = document.getElementById('errorList');
           const errorDetails = document.getElementById('errorDetails');
           errorDetails.innerHTML = errors.map(err => `<div class="error-item">${err}</div>`).join('');
@@ -1379,7 +1401,7 @@
         // Process each row
         for (let i = 1; i < csvRows.length; i++) {
           if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
-          
+
           const currentAddress = csvRows[i][fileHeaders.indexOf('instance')];
           if (existingAddresses.duplicates && existingAddresses.duplicates.includes(currentAddress)) {
             continue;
@@ -1400,9 +1422,9 @@
               method: 'POST',
               body: formData
             });
-            
+
             const data = await response.json();
-            
+
             if (!response.ok) {
               errorCount++;
               const errorMsg = `Row ${i + 1} (${rowData.short_name}): ${data.message || response.statusText}`;
@@ -1425,7 +1447,7 @@
         // Show error details if there are any
         const errorList = document.getElementById('errorList');
         const errorDetails = document.getElementById('errorDetails');
-        
+
         if (errors.length > 0) {
           errorDetails.innerHTML = errors.map(err => `<div class="error-item">${err}</div>`).join('');
           errorList.style.display = 'block';
@@ -1435,14 +1457,14 @@
 
         // Show the summary section
         document.getElementById('importSummary').style.display = 'block';
-        
+
         // Update validation message
         if (errorCount > 0) {
           showValidationMessage(`Import completed with ${errorCount} errors. ${importedCount} rows imported successfully.`, true);
         } else {
           showValidationMessage(`Successfully imported ${importedCount} rows`, false);
         }
-        
+
         updateUnsavedChanges(true);
         loadTargets();
       } catch (error) {
@@ -1450,7 +1472,7 @@
         showToast('Error during import process. Please try again.', 'error');
       }
     }
-    
+
     function showValidationMessage(message, isError = false) {
       const validationDiv = document.getElementById('validationMessage');
       validationDiv.className = `validation-message ${isError ? 'error' : 'success'}`;
@@ -1491,7 +1513,7 @@
       const importModal = document.getElementById('importModal');
       const addTargetModal = document.getElementById('addTargetOptionsModal');
       const addTargetManuallyModal = document.getElementById('addTargetManuallyModal');
-      
+
       if (event.target === importModal) {
         closeImportModal();
       }
@@ -1512,15 +1534,15 @@
       const reader = new FileReader();
       reader.onload = function(event) {
         const csvData = event.target.result;
-        
+
         // Get selected delimiter or auto-detect
         const delimiterSelect = document.getElementById('delimiterSelect');
         let delimiter = delimiterSelect.value;
-        
+
         if (delimiter === 'auto') {
           delimiter = detectDelimiter(csvData);
           detectedDelimiter = delimiter;
-          
+
           // Update the dropdown to show detected delimiter
           const options = delimiterSelect.options;
           for (let i = 0; i < options.length; i++) {
@@ -1532,15 +1554,15 @@
         } else {
           detectedDelimiter = delimiter;
         }
-        
+
         // Parse CSV with the determined delimiter
         csvRows = parseCSV(csvData, delimiter);
         const headers = csvRows[0].map(header => header.toLowerCase());
-        
+
         // Validate headers
         const missingFields = requiredFields.filter(field => !headers.includes(field));
         const previewSection = document.getElementById('previewSection');
-        
+
         if (missingFields.length > 0) {
           showValidationMessage(`Missing required columns: ${missingFields.join(', ')}`, true);
           previewSection.style.display = 'none';
@@ -1579,7 +1601,7 @@
         // Show preview section
         previewSection.style.display = 'block';
       };
-      
+
       reader.readAsText(file);
     }
 
@@ -1622,13 +1644,13 @@
         },
         body: JSON.stringify({ addresses: csvTargetAddresses })
       });
-        
+
         const existingAddresses = await response.json();
-        
+
         if (existingAddresses.duplicates && existingAddresses.duplicates.length > 0) {
           // Add errors for all existing addresses
           existingAddresses.duplicates.forEach(address => {
-            const rowIndex = csvRows.findIndex((row, index) => 
+            const rowIndex = csvRows.findIndex((row, index) =>
               index > 0 && row[fileHeaders.indexOf('instance')] === address
             );
             if (rowIndex !== -1) {
@@ -1641,24 +1663,24 @@
               errors.push(errorMsg);
             }
           });
-          
+
           // Show validation message with duplicate count
           showValidationMessage(
-            `Found ${existingAddresses.duplicates.length} duplicate target addresses in database. Check error details below.`, 
+            `Found ${existingAddresses.duplicates.length} duplicate target addresses in database. Check error details below.`,
             true
           );
-          
+
           // Update the summary section early to show duplicates
           document.getElementById('errorCount').textContent = errorCount;
           document.getElementById('totalCount').textContent = csvTargetAddresses.length;
           document.getElementById('importSummary').style.display = 'block';
-          
+
           // Show error details
           const errorList = document.getElementById('errorList');
           const errorDetails = document.getElementById('errorDetails');
           errorDetails.innerHTML = errors.map(err => `<div class="error-item">${err}</div>`).join('');
           errorList.style.display = 'block';
-          
+
           // Ask user if they want to continue with non-duplicate addresses
           if (!confirm('Some target addresses already exist in the database. Do you want to continue importing only the new addresses?')) {
             return;
@@ -1677,7 +1699,7 @@
         if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
         const instanceIndex = fileHeaders.indexOf('instance');
         const targetAddress = csvRows[i][instanceIndex];
-        
+
         if (seenAddresses.has(targetAddress)) {
           duplicatesInCSV.push({
             row: i + 1,
@@ -1696,10 +1718,10 @@
           const errorMsg = `Row ${dup.row} (${dup.short_name}): Duplicate target address "${dup.address}" found within the CSV`;
           errors.push(errorMsg);
         });
-        
+
         // Show validation message with duplicate count
         showValidationMessage(
-          `Found ${duplicatesInCSV.length} duplicate target addresses within the CSV file. Check error details below.`, 
+          `Found ${duplicatesInCSV.length} duplicate target addresses within the CSV file. Check error details below.`,
           true
         );
         return;
@@ -1708,13 +1730,13 @@
       // Process each row after validation
       for (let i = 1; i < csvRows.length; i++) {
         if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
-        
+
         // Skip rows with addresses that exist in the database
         const currentAddress = csvRows[i][fileHeaders.indexOf('instance')];
         if (existingAddresses.duplicates && existingAddresses.duplicates.includes(currentAddress)) {
           continue;
         }
-        
+
         const rowData = {};
         fileHeaders.forEach((header, index) => {
           rowData[header] = csvRows[i][index] || '';
@@ -1730,9 +1752,9 @@
             method: 'POST',
             body: formData
           });
-          
+
           const data = await response.json();
-          
+
           if (!response.ok) {
             errorCount++;
             let errorMsg;
@@ -1756,31 +1778,31 @@
         // Update the summary section
         document.getElementById('successCount').textContent = importedCount;
         document.getElementById('totalCount').textContent = importedCount + errorCount;
-  
+
         // Show error details if there are any
         const errorList = document.getElementById('errorList');
         const errorDetails = document.getElementById('errorDetails');
-        
+
         if (errors.length > 0) {
           errorDetails.innerHTML = errors.map(err => `<div class="error-item">${err}</div>`).join('');
           errorList.style.display = 'block';
         } else {
           errorList.style.display = 'none';
         }
-  
+
         // Show the summary section
         document.getElementById('importSummary').style.display = 'block';
-        
+
         // Update validation message
         if (errorCount > 0) {
           showValidationMessage(`Import completed with ${errorCount} errors. ${importedCount} rows imported successfully.`, true);
         } else {
           showValidationMessage(`Successfully imported ${importedCount} rows`, false);
         }
-        
+
         updateUnsavedChanges(true);
         loadTargets();
-  
+
       } catch (error) {
         console.error('Error updating UI:', error);
         showToast('Error updating the interface. Please try again.', 'error');
@@ -1791,13 +1813,13 @@
     async function downloadTemplate(e) {
       try {
         e.preventDefault();
-        const templateHeaders = ['address', 'instance', 'module', 'zone', 'service', 'device_type', 
+        const templateHeaders = ['address', 'instance', 'module', 'zone', 'service', 'device_type',
                         'connection_type', 'location', 'short_name'];
         const example = [
-          '127.0.0.1:9115', '192.168.1.1', 'icmp', 'INT', 'BACKBONE', 'ROUTER', 
+          '127.0.0.1:9115', '192.168.1.1', 'icmp', 'INT', 'BACKBONE', 'ROUTER',
           'FO', 'DC1', 'abc123', 'RTR-01'
         ];
-        
+
         const csv = [
           templateHeaders.join(';'),
           example.join(';')
@@ -1829,7 +1851,7 @@
 <script>
   const serviceInput = document.getElementById('service');
   const note = document.getElementById('service-note');
-  
+
   serviceInput.addEventListener('input', () => {
     if (serviceInput.value.toUpperCase() === 'CPE','RDMT', 'RDSL', 'SEGMENT') {
       note.style.display = 'inline';
