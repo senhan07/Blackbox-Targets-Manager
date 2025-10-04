@@ -15,6 +15,9 @@ class Database:
 
     def check_duplicate_addresses(self, addresses):
         """Check if any of the provided addresses already exist in the database"""
+        if not addresses:
+            return []
+
         existing_addresses = []
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
@@ -51,9 +54,15 @@ class Database:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT NOT NULL UNIQUE,
                     password TEXT NOT NULL,
-                    role TEXT NOT NULL DEFAULT 'viewer'
+                    role TEXT NOT NULL DEFAULT 'viewer',
+                    password_changed INTEGER DEFAULT 0
                 )
             ''')
+            # Add password_changed column if it doesn't exist for backward compatibility
+            try:
+                cursor.execute('ALTER TABLE users ADD COLUMN password_changed INTEGER DEFAULT 0')
+            except sqlite3.OperationalError:
+                pass  # Column already exists
             conn.commit()
 
     def get_all_users(self):
@@ -64,12 +73,16 @@ class Database:
             cursor.execute('SELECT id, username, role FROM users')
             return [dict(row) for row in cursor.fetchall()]
 
-    def create_user(self, username, password, role='viewer'):
+    def create_user(self, username, password, role='viewer', is_default_admin=False):
         """Create a new user"""
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
             try:
-                cursor.execute('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', (username, password, role))
+                password_changed = 0 if is_default_admin else 1
+                cursor.execute(
+                    'INSERT INTO users (username, password, role, password_changed) VALUES (?, ?, ?, ?)',
+                    (username, password, role, password_changed)
+                )
                 conn.commit()
                 return True
             except sqlite3.IntegrityError:
@@ -100,10 +113,13 @@ class Database:
             return cursor.fetchone()
 
     def update_user_password(self, user_id, new_password):
-        """Update a user's password"""
+        """Update a user's password and set the password_changed flag"""
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute('UPDATE users SET password = ? WHERE id = ?', (new_password, user_id))
+            cursor.execute(
+                'UPDATE users SET password = ?, password_changed = 1 WHERE id = ?',
+                (new_password, user_id)
+            )
             conn.commit()
             return cursor.rowcount > 0
 
@@ -164,13 +180,6 @@ class Database:
             cursor.execute('SELECT * FROM targets')
             self.temp_targets = [dict(row) for row in cursor.fetchall()]
             self.temp_changes = {'added': [], 'deleted': [], 'toggled': []}
-
-        for target in self.temp_targets:
-            cursor = conn.cursor()
-            cursor.execute('SELECT enabled FROM targets WHERE id = ?', (target['id'],))
-            result = cursor.fetchone()
-            if result:
-                target['enabled'] = result[0]
 
     def toggle_target(self, id):
         """Toggle target in temporary storage"""
