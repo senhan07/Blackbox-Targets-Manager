@@ -1045,8 +1045,12 @@
             ${actionsHtml}
           `;
           row.addEventListener('click', (e) => {
-            if (e.altKey) {
+            if (e.ctrlKey) {
                 toggleRowSelection(row, target.id);
+            } else {
+                document.querySelectorAll('.selected-row').forEach(r => r.classList.remove('selected-row'));
+                selectedTargetIds = [target.id];
+                row.classList.add('selected-row');
             }
           });
 
