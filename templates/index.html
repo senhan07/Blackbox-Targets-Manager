@@ -390,6 +390,36 @@
       background-color: #f1f1f1;
     }
 
+    .selected-row {
+        background-color: #d4edda !important; /* A light green to indicate selection */
+    }
+
+    #context-menu {
+        display: none;
+        position: absolute;
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        z-index: 1200;
+        padding: 5px 0;
+    }
+
+    #context-menu ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    #context-menu li {
+        padding: 8px 15px;
+        cursor: pointer;
+    }
+
+    #context-menu li:hover {
+        background-color: #f8f9fa;
+    }
+
     tr:last-child td {
       border-bottom: none;
     }
@@ -670,6 +700,13 @@
 </head>
 
 <body>
+    <div id="context-menu">
+        <ul>
+            <li id="context-enable">Enable</li>
+            <li id="context-disable">Disable</li>
+            <li id="context-remove">Remove</li>
+        </ul>
+    </div>
   <div id="toastContainer"></div>
 
   <div class="header">
@@ -886,6 +923,10 @@
 
   <script>
     const userRole = '{{ user_role }}';
+    let targets = [];
+    let currentEditingId = null;
+    let selectedTargetIds = [];
+
     // Track unsaved changes
     let hasUnsavedChanges = false;
     let unsavedToast = null;
@@ -968,18 +1009,20 @@
     async function loadTargets() {
       try {
         const response = await fetch('/targets');
-        const targets = await response.json();
+        targets = await response.json();
         const tbody = document.querySelector('#targetsTable tbody');
         tbody.innerHTML = ''; // Clear existing rows
 
         targets.forEach(target => {
           const row = document.createElement('tr');
+          row.dataset.targetId = target.id;
           let actionsHtml = '';
           if (userRole === 'admin') {
               actionsHtml = `
                 <td>
                   <div class="action-buttons">
                     <button onclick="toggleTarget(${target.id})">On/Off</button>
+                    <button onclick="openEditModal(${target.id})">Edit</button>
                     <button color="red" onclick="removeTarget(${target.id})">Remove</button>
                   </div>
                 </td>
@@ -1001,6 +1044,17 @@
             <td class="${target.enabled ? 'status-enabled' : 'status-disabled'}">${target.enabled ? 'Enabled' : 'Disabled'}</td>
             ${actionsHtml}
           `;
+          row.addEventListener('click', (e) => {
+            if (e.altKey) {
+                toggleRowSelection(row, target.id);
+            }
+          });
+
+          row.addEventListener('contextmenu', (e) => {
+              e.preventDefault();
+              showContextMenu(e, target.id);
+          });
+
           tbody.appendChild(row);
         });
 
@@ -1050,53 +1104,46 @@
       });
     });
 
-    // ADD TARGET
+    // ADD/EDIT TARGET
     document.getElementById('addTargetForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const url = currentEditingId ? `/target/${currentEditingId}/edit` : '/target';
+        const method = 'POST';
 
-      // Get form data
-      const formData = new FormData(e.target);
+        // Validation logic...
+        const proberServer = formData.get('address').trim();
+        const targetAddress = formData.get('instance').trim();
+        const targetLocation = formData.get('location').trim();
+        const fieldsToValidate = ['service', 'device_type', 'connection_type', 'location', 'short_name'];
+        const invalidSymbolRegex = /[^a-zA-Z0-9\s.-]/;
 
-      // Strip leading/trailing whitespaces for address and instance
-      const proberServer = formData.get('address').trim();
-      const targetAddress = formData.get('instance').trim();
-      const targetLocation = formData.get('location').trim();
-
-      // Validate the Service, Device Type, Connection Type, Location, Short Name
-      const fieldsToValidate = ['service', 'device_type', 'connection_type', 'location', 'short_name'];
-      const invalidSymbolRegex = /[^a-zA-Z0-9\s.-]/;
-
-      for (const field of fieldsToValidate) {
-        const value = formData.get(field)?.trim() || '';
-        if (invalidSymbolRegex.test(value)) {
-          alert(`The field "${field}" contains invalid symbols. Only allowed dot (.) and dash (-)`);
-          return;
+        for (const field of fieldsToValidate) {
+            const value = formData.get(field)?.trim() || '';
+            if (invalidSymbolRegex.test(value)) {
+            alert(`The field "${field}" contains invalid symbols. Only allowed dot (.) and dash (-)`);
+            return;
+            }
         }
-      }
+        formData.set('address', proberServer);
+        formData.set('instance', targetAddress);
+        formData.set('location', targetLocation);
 
-      // Update form data with stripped values
-      formData.set('address', proberServer);
-      formData.set('instance', targetAddress);
-      formData.set('location', targetLocation);
-
-      // Submit the data
-      const response = await fetch('/target', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': csrfToken
-        },
-        body: formData
-      });
-      const data = await response.json();
-      showToast(data.message);
-      updateUnsavedChanges(true);
-
-      // Reload the targets instead of reloading the page
-      loadTargets();
-
-      // Clear the form and close the modal
-      e.target.reset();
-      closeAddTargetManuallyModal();
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            });
+            const data = await response.json();
+            showToast(data.message);
+            updateUnsavedChanges(true);
+            loadTargets();
+            closeAddTargetManuallyModal();
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            showToast('Error submitting form. Please try again.', 'error');
+        }
     });
 
 
@@ -1293,6 +1340,99 @@
                 showToast('Error discarding changes. Please try again.', 'error');
             }
         }, 0);
+    }
+
+    function openEditModal(id) {
+        const target = targets.find(t => t.id === id);
+        if (!target) return;
+
+        currentEditingId = id;
+
+        const form = document.getElementById('addTargetForm');
+        form.querySelector('[name="address"]').value = target.address;
+        form.querySelector('[name="instance"]').value = target.instance;
+        form.querySelector('[name="module"]').value = target.module;
+        form.querySelector('[name="zone"]').value = target.zone;
+        form.querySelector('[name="service"]').value = target.service;
+        form.querySelector('[name="device_type"]').value = target.device_type;
+        form.querySelector('[name="connection_type"]').value = target.connection_type;
+        form.querySelector('[name="location"]').value = target.location;
+        form.querySelector('[name="short_name"]').value = target.short_name;
+
+        document.querySelector('#addTargetManuallyModal .modal-title').textContent = 'Edit Target';
+        form.querySelector('button[type="submit"]').textContent = 'Update Target';
+
+        openAddTargetManuallyModal();
+    }
+
+    function toggleRowSelection(row, targetId) {
+        const index = selectedTargetIds.indexOf(targetId);
+        if (index > -1) {
+            selectedTargetIds.splice(index, 1);
+            row.classList.remove('selected-row');
+        } else {
+            selectedTargetIds.push(targetId);
+            row.classList.add('selected-row');
+        }
+    }
+
+    function showContextMenu(event, targetId) {
+        if (!selectedTargetIds.includes(targetId)) {
+            document.querySelectorAll('.selected-row').forEach(r => r.classList.remove('selected-row'));
+            selectedTargetIds = [targetId];
+            const row = document.querySelector(`tr[data-target-id='${targetId}']`);
+            if (row) {
+                row.classList.add('selected-row');
+            }
+        }
+
+        const contextMenu = document.getElementById('context-menu');
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = `${event.pageX}px`;
+        contextMenu.style.top = `${event.pageY}px`;
+    }
+
+    window.addEventListener('click', () => {
+        const contextMenu = document.getElementById('context-menu');
+        if (contextMenu.style.display === 'block') {
+            contextMenu.style.display = 'none';
+        }
+    });
+
+    document.getElementById('context-enable').addEventListener('click', () => bulkAction('enable'));
+    document.getElementById('context-disable').addEventListener('click', () => bulkAction('disable'));
+    document.getElementById('context-remove').addEventListener('click', () => bulkAction('remove'));
+
+    async function bulkAction(action) {
+        if (selectedTargetIds.length === 0) {
+            showToast('No targets selected.', 'error');
+            return;
+        }
+
+        const confirmMessage = `Are you sure you want to ${action} ${selectedTargetIds.length} target(s)?`;
+        if (confirm(confirmMessage)) {
+            try {
+                const response = await fetch('/targets/bulk_action', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        target_ids: selectedTargetIds
+                    })
+                });
+                const data = await response.json();
+                showToast(data.message);
+                updateUnsavedChanges(true);
+                loadTargets();
+                selectedTargetIds = []; // Clear selection
+            } catch (error) {
+                console.error('Error performing bulk action:', error);
+                showToast('Error performing bulk action. Please try again.', 'error');
+            }
+        }
     }
 
     // CSV Preview and Import functionality
@@ -1567,8 +1707,13 @@
 
     function closeAddTargetManuallyModal() {
       document.getElementById('addTargetManuallyModal').style.display = 'none';
-      // Clear the form when closing
-      document.getElementById('addTargetForm').reset();
+
+      // Reset the modal to its "add" state
+      currentEditingId = null;
+      document.querySelector('#addTargetManuallyModal .modal-title').textContent = 'Add Target Manually';
+      const form = document.getElementById('addTargetForm');
+      form.querySelector('button[type="submit"]').textContent = 'Add Target';
+      form.reset();
     }
 
     // Close modal if clicking outside of it

@@ -128,6 +128,26 @@ def add_target():
     return jsonify({"message": "Target added successfully (not saved)", "id": id}), 201
 
 
+@app.route('/target/<int:id>/edit', methods=['POST'])
+@login_required
+@admin_required
+def edit_target(id):
+    target_data = {
+        'address': request.form.get('address'),
+        'instance': request.form.get('instance'),
+        'module': request.form.get('module'),
+        'zone': request.form.get('zone'),
+        'service': request.form.get('service'),
+        'device_type': request.form.get('device_type'),
+        'connection_type': request.form.get('connection_type'),
+        'location': request.form.get('location'),
+        'short_name': request.form.get('short_name')
+    }
+    if db.edit_target(id, target_data):
+        return jsonify({"message": "Target updated successfully (not saved)"})
+    return jsonify({"message": "Target not found"}), 404
+
+
 @app.route('/save', methods=['POST'])
 @login_required
 @admin_required
@@ -163,6 +183,23 @@ def toggle_target(id):
     if db.toggle_target(id):
         return jsonify({"message": "Target toggled successfully (not saved)"})
     return jsonify({"message": "Target not found"}), 404
+
+
+@app.route('/targets/bulk_action', methods=['POST'])
+@login_required
+@admin_required
+def bulk_action_route():
+    data = request.get_json()
+    action = data.get('action')
+    target_ids = data.get('target_ids')
+
+    if not all([action, target_ids]):
+        return jsonify({'error': 'Missing action or target_ids'}), 400
+
+    if db.bulk_action(action, target_ids):
+        return jsonify({'message': 'Bulk action completed successfully (not saved)'})
+
+    return jsonify({'error': 'Failed to perform bulk action'}), 500
 
 @app.route('/users', methods=['GET'])
 @login_required
