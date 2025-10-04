@@ -1,26 +1,60 @@
 from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash
+from flask_wtf.csrf import CSRFProtect
 from datetime import datetime
 import uuid
 from database import Database
-import os
 from werkzeug.security import generate_password_hash, check_password_hash
+from config import Config
+import yaml
+from functools import wraps
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.config.from_object(Config)
 
-BLACKBOX_FILE = 'blackbox-targets.yml'
-db = Database()
+csrf = CSRFProtect(app)
+
+db = Database(app.config['DATABASE_FILE'])
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+
+        if session.get('force_password_change'):
+            if request.endpoint not in ['force_change_password_route', 'logout', 'static']:
+                flash('Please change the default password before proceeding.')
+                return redirect(url_for('force_change_password_route'))
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
 
 def create_default_user():
     """Create a default admin user if no users exist"""
     if not db.get_all_users():
-        db.create_user('admin', generate_password_hash('admin'), 'admin')
+        db.create_user('admin', generate_password_hash('admin'), 'admin', is_default_admin=True)
 
 def generate_yaml_file():
     """Generate the YAML file from the database content"""
-    yaml_content = db.generate_yaml_content()
-    with open(BLACKBOX_FILE, 'w') as file:
-        file.write(yaml_content)
+    targets = db.get_all_targets(use_temp=False)
+
+    enabled_targets = [
+        f"{t['address']};{t['instance']};{t['module']};{t['zone']};{t['service']};{t['device_type']};{t['connection_type']};{t['location']};{t['short_name']}"
+        for t in targets if t['enabled']
+    ]
+
+    yaml_data = [{'targets': enabled_targets}]
+
+    with open('blackbox-targets.yml', 'w') as file:
+        yaml.dump(yaml_data, file, default_flow_style=False)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -33,6 +67,12 @@ def login():
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['role'] = user['role']
+
+            if user['username'] == 'admin' and not user['password_changed']:
+                session['force_password_change'] = True
+                flash('Please change the default password before proceeding.')
+                return redirect(url_for('force_change_password_route'))
+
             return redirect(url_for('index'))
         else:
             flash('Invalid username or password')
@@ -45,16 +85,14 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/')
+@login_required
 def index():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
     return render_template('index.html', username=session.get('username'), user_role=session.get('role'))
 
 
 @app.route('/targets', methods=['GET'])
+@login_required
 def get_targets():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
     has_temp_changes = len(db.temp_changes['added']) > 0 or \
                       len(db.temp_changes['deleted']) > 0 or \
                       len(db.temp_changes['toggled']) > 0
@@ -66,9 +104,8 @@ def get_targets():
 
 
 @app.route('/check_addresses', methods=['POST'])
+@login_required
 def check_addresses():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
     data = request.get_json()
     if not data or 'addresses' not in data:
         return jsonify({'error': 'No addresses provided'}), 400
@@ -81,9 +118,9 @@ def check_addresses():
     return jsonify({'duplicates': duplicates})
 
 @app.route('/target', methods=['POST'])
+@login_required
+@admin_required
 def add_target():
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 401
     target_data = {
         'address': request.form.get('address'),
         'instance': request.form.get('instance'),
@@ -101,9 +138,9 @@ def add_target():
 
 
 @app.route('/save', methods=['POST'])
+@login_required
+@admin_required
 def save_changes():
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 401
     if db.save_changes():
         generate_yaml_file()
         return jsonify({"message": "Changes saved and YAML generated successfully"})
@@ -111,43 +148,42 @@ def save_changes():
 
 
 @app.route('/discard', methods=['POST'])
+@login_required
+@admin_required
 def discard_changes():
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 401
     if db.discard_changes():
         return jsonify({"message": "Changes discarded successfully"})
     return jsonify({"message": "Error discarding changes"}), 500
 
 
 @app.route('/target/<int:id>', methods=['DELETE'])
+@login_required
+@admin_required
 def delete_target(id):
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 401
     if db.delete_target(id):
         return jsonify({"message": "Target deleted successfully (not saved)"})
     return jsonify({"message": "Target not found"}), 404
 
 
 @app.route('/target/<int:id>/toggle', methods=['POST'])
+@login_required
+@admin_required
 def toggle_target(id):
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 401
     if db.toggle_target(id):
         return jsonify({"message": "Target toggled successfully (not saved)"})
     return jsonify({"message": "Target not found"}), 404
 
 @app.route('/users', methods=['GET'])
+@login_required
+@admin_required
 def users_page():
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return redirect(url_for('login'))
     users = db.get_all_users()
     return render_template('users.html', users=users, current_user_id=session.get('user_id'))
 
 @app.route('/users/create', methods=['POST'])
+@login_required
+@admin_required
 def create_user_route():
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return redirect(url_for('login'))
-
     username = request.form.get('username')
     password = request.form.get('password')
     role = request.form.get('role')
@@ -165,10 +201,9 @@ def create_user_route():
     return redirect(url_for('users_page'))
 
 @app.route('/users/delete/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
 def delete_user_route(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return redirect(url_for('login'))
-
     if user_id == session.get('user_id'):
         flash("You cannot delete your own account.")
         return redirect(url_for('users_page'))
@@ -183,12 +218,33 @@ def delete_user_route(user_id):
         flash('Error deleting user.')
     return redirect(url_for('users_page'))
 
-
-@app.route('/users/change-password/<int:user_id>', methods=['GET', 'POST'])
-def change_password_route(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
+@app.route('/force-change-password', methods=['GET', 'POST'])
+def force_change_password_route():
+    if 'user_id' not in session or not session.get('force_password_change'):
         return redirect(url_for('login'))
 
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        if not new_password or new_password != confirm_password:
+            flash('Passwords do not match or are empty.')
+            return render_template('force_change_password.html', username=session.get('username'))
+
+        hashed_password = generate_password_hash(new_password)
+        if db.update_user_password(session['user_id'], hashed_password):
+            session.pop('force_password_change', None)
+            flash('Password updated successfully! You can now use the application.')
+            return redirect(url_for('index'))
+        else:
+            flash('Error updating password.')
+
+    return render_template('force_change_password.html', username=session.get('username'))
+
+@app.route('/users/change-password/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def change_password_route(user_id):
     user = db.get_user_by_id(user_id)
     if not user:
         flash('User not found.')
@@ -213,10 +269,9 @@ def change_password_route(user_id):
     return render_template('change_password.html', user_id=user_id, username=user['username'])
 
 @app.route('/users/change-role/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
 def change_role_route(user_id):
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return redirect(url_for('login'))
-
     new_role = request.form.get('role')
     if not new_role or new_role not in ['admin', 'viewer']:
         flash('Invalid role specified.')
@@ -233,4 +288,4 @@ def change_role_route(user_id):
 if __name__ == '__main__':
     with app.app_context():
         create_default_user()
-    app.run(debug=True, port=8844)
+    app.run()

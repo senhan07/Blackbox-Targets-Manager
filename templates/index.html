@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Blackbox Targets Manager</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -813,7 +814,13 @@
   {% endif %}
 
   <div class="main-content">
-
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
   <div id="hideColumnsCheckboxes">
     <label class="checkbox-label"><input type="checkbox" value="address" checked> Prober Server</label>
     <label class="checkbox-label"><input type="checkbox" value="instance" checked> Target Address</label>
@@ -929,6 +936,8 @@
       }
     });
 
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
     // Load targets when the page loads
     async function loadTargets() {
       try {
@@ -990,9 +999,14 @@
     // Load targets when the page loads
     document.addEventListener('DOMContentLoaded', () => {
         if (userRole === 'admin') {
-            fetch('/discard', { method: 'POST' })
-                .then(() => loadTargets())
-                .catch(error => console.error('Error resetting state:', error));
+            fetch('/discard', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(() => loadTargets())
+            .catch(error => console.error('Error resetting state:', error));
         } else {
             loadTargets();
         }
@@ -1042,6 +1056,9 @@
       // Submit the data
       const response = await fetch('/target', {
         method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken
+        },
         body: formData
       });
       const data = await response.json();
@@ -1061,7 +1078,12 @@
     async function toggleTarget(uid) {
       if (confirm(`Are you sure you want to toggle this target?`)) {
         try {
-          const response = await fetch(`/target/${uid}/toggle`, { method: 'POST' });
+          const response = await fetch(`/target/${uid}/toggle`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+          });
           const data = await response.json();
           showToast(data.message);
           updateUnsavedChanges(true);
@@ -1077,7 +1099,12 @@
     async function removeTarget(uid) {
       if (confirm(`Are you sure you want to delete this target?`)) {
         try {
-          const response = await fetch(`/target/${uid}`, { method: 'DELETE' });
+          const response = await fetch(`/target/${uid}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+          });
           const data = await response.json();
           showToast(data.message);
           updateUnsavedChanges(true);
@@ -1207,7 +1234,12 @@
     // Save Changes
     async function saveChanges() {
       try {
-        const response = await fetch('/save', { method: 'POST' });
+        const response = await fetch('/save', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
         const data = await response.json();
         showToast('Changes saved successfully!', 'info');
         updateUnsavedChanges(false);
@@ -1221,7 +1253,12 @@
     // Discard Changes
     async function discardChanges() {
       try {
-        const response = await fetch('/discard', { method: 'POST' });
+        const response = await fetch('/discard', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
         const data = await response.json();
         showToast('Changes discarded', 'info');
         updateUnsavedChanges(false);
