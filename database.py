@@ -9,7 +9,8 @@ class Database:
         self.temp_changes = {
             'added': [],
             'deleted': [],
-            'toggled': []
+            'toggled': [],
+            'edited': []
         }
         self.load_targets_to_temp()
 
@@ -151,6 +152,16 @@ class Database:
         self.temp_changes['added'].append(new_target)
         return temp_id
 
+    def edit_target(self, id, target_data):
+        """Edit target in temporary storage"""
+        for target in self.temp_targets:
+            if target['id'] == id:
+                target.update(target_data)
+                if id > 0 and id not in self.temp_changes['edited']:
+                    self.temp_changes['edited'].append(id)
+                return True
+        return False
+
     def get_all_targets(self, use_temp=True):
         """Get all targets from storage"""
         if use_temp:
@@ -179,7 +190,7 @@ class Database:
             cursor = conn.cursor()
             cursor.execute('SELECT * FROM targets')
             self.temp_targets = [dict(row) for row in cursor.fetchall()]
-            self.temp_changes = {'added': [], 'deleted': [], 'toggled': []}
+            self.temp_changes = {'added': [], 'deleted': [], 'toggled': [], 'edited': []}
 
     def toggle_target(self, id):
         """Toggle target in temporary storage"""
@@ -190,6 +201,22 @@ class Database:
                     self.temp_changes['toggled'].append(id)
                 return True
         return False
+
+    def bulk_action(self, action, target_ids):
+        """Perform a bulk action (enable, disable, remove) on selected targets."""
+        for target_id in target_ids:
+            if action == 'remove':
+                self.delete_target(target_id)
+            else:
+                for target in self.temp_targets:
+                    if target['id'] == target_id:
+                        new_state = 1 if action == 'enable' else 0
+                        if target['enabled'] != new_state:
+                            target['enabled'] = new_state
+                            if target_id not in self.temp_changes['toggled']:
+                                self.temp_changes['toggled'].append(target_id)
+                        break
+        return True
 
     def save_changes(self):
         """Save all temporary changes to database and generate YAML"""
@@ -207,6 +234,20 @@ class Database:
                             SET enabled = ?
                             WHERE id = ?
                         ''', (1 if target['enabled'] else 0, id))
+
+            for id in self.temp_changes['edited']:
+                for target in self.temp_targets:
+                    if target['id'] == id:
+                        cursor.execute('''
+                            UPDATE targets
+                            SET address = ?, instance = ?, module = ?, zone = ?, service = ?,
+                                device_type = ?, connection_type = ?, location = ?, short_name = ?
+                            WHERE id = ?
+                        ''', (
+                            target['address'], target['instance'], target['module'], target['zone'],
+                            target['service'], target['device_type'], target['connection_type'],
+                            target['location'], target['short_name'], id
+                        ))
 
             for target in self.temp_changes['added']:
                 cursor.execute('''
