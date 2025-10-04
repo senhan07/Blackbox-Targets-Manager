@@ -181,13 +181,6 @@ class Database:
             self.temp_targets = [dict(row) for row in cursor.fetchall()]
             self.temp_changes = {'added': [], 'deleted': [], 'toggled': []}
 
-        for target in self.temp_targets:
-            cursor = conn.cursor()
-            cursor.execute('SELECT enabled FROM targets WHERE id = ?', (target['id'],))
-            result = cursor.fetchone()
-            if result:
-                target['enabled'] = result[0]
-
     def toggle_target(self, id):
         """Toggle target in temporary storage"""
         for target in self.temp_targets:

@@ -628,6 +628,22 @@
       background-color: white;
     }
 
+    .toast-close-button {
+        background: none;
+        border: none;
+        color: inherit;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0 5px;
+        margin-left: 15px;
+        line-height: 1;
+        opacity: 0.7;
+    }
+
+    .toast-close-button:hover {
+        opacity: 1;
+    }
+
     @keyframes slideIn {
       from {
         transform: translateX(100%);
@@ -892,16 +908,26 @@
         `;
       }
 
-      toastContent += '</div>';
+      toastContent += `</div><button class="toast-close-button">&times;</button>`;
       toast.innerHTML = toastContent;
 
-      if (!persistent) {
-        setTimeout(() => {
+      const closeButton = toast.querySelector('.toast-close-button');
+      let timeoutId = null;
+
+      function closeToast() {
           toast.style.animation = 'slideOut 0.5s ease-out forwards';
           setTimeout(() => {
-            toastContainer.removeChild(toast);
+              if (toast.parentNode) {
+                  toast.parentNode.removeChild(toast);
+              }
+              if(timeoutId) clearTimeout(timeoutId);
           }, 500);
-        }, 5000);
+      }
+
+      closeButton.addEventListener('click', closeToast);
+
+      if (!persistent) {
+        timeoutId = setTimeout(closeToast, 5000);
       }
 
       toastContainer.appendChild(toast);
@@ -1232,41 +1258,41 @@
     });
 
     // Save Changes
-    async function saveChanges() {
-      try {
-        const response = await fetch('/save', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken
+    function saveChanges() {
+        setTimeout(async () => {
+            try {
+                const response = await fetch('/save', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+                const data = await response.json();
+                showToast('Changes saved successfully!', 'info');
+                updateUnsavedChanges(false);
+                loadTargets(); // Refresh the table
+            } catch (error) {
+                console.error('Error saving changes:', error);
+                showToast('Error saving changes. Please try again.', 'error');
             }
-        });
-        const data = await response.json();
-        showToast('Changes saved successfully!', 'info');
-        updateUnsavedChanges(false);
-        loadTargets(); // Refresh the table
-      } catch (error) {
-        console.error('Error saving changes:', error);
-        showToast('Error saving changes. Please try again.', 'error');
-      }
+        }, 0);
     }
 
     // Discard Changes
-    async function discardChanges() {
-      try {
-        const response = await fetch('/discard', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken
+    function discardChanges() {
+        setTimeout(async () => {
+            try {
+                const response = await fetch('/discard', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+                const data = await response.json();
+                showToast('Changes discarded', 'info');
+                updateUnsavedChanges(false);
+                loadTargets(); // Refresh the table
+            } catch (error) {
+                console.error('Error discarding changes:', error);
+                showToast('Error discarding changes. Please try again.', 'error');
             }
-        });
-        const data = await response.json();
-        showToast('Changes discarded', 'info');
-        updateUnsavedChanges(false);
-        loadTargets(); // Refresh the table
-      } catch (error) {
-        console.error('Error discarding changes:', error);
-        showToast('Error discarding changes. Please try again.', 'error');
-      }
+        }, 0);
     }
 
     // CSV Preview and Import functionality

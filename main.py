@@ -5,7 +5,6 @@ import uuid
 from database import Database
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
-import yaml
 from functools import wraps
 
 app = Flask(__name__)
@@ -44,17 +43,9 @@ def create_default_user():
 
 def generate_yaml_file():
     """Generate the YAML file from the database content"""
-    targets = db.get_all_targets(use_temp=False)
-
-    enabled_targets = [
-        f"{t['address']};{t['instance']};{t['module']};{t['zone']};{t['service']};{t['device_type']};{t['connection_type']};{t['location']};{t['short_name']}"
-        for t in targets if t['enabled']
-    ]
-
-    yaml_data = [{'targets': enabled_targets}]
-
-    with open('blackbox-targets.yml', 'w') as file:
-        yaml.dump(yaml_data, file, default_flow_style=False)
+    yaml_content = db.generate_yaml_content()
+    with open(app.config['BLACKBOX_FILE'], 'w') as file:
+        file.write(yaml_content)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

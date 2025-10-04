@@ -2,29 +2,39 @@ import pytest
 import sqlite3
 import sys
 import os
+import tempfile
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from main import app, db
+import main
+from database import Database
 from werkzeug.security import generate_password_hash
 
 @pytest.fixture
 def client():
-    app.config['TESTING'] = True
-    app.config['WTF_CSRF_ENABLED'] = False
-    client = app.test_client()
+    # Create a temporary file to be used as the test database
+    db_fd, db_path = tempfile.mkstemp()
 
-    with app.app_context():
-        db.init_db()
-        # Clean up users table before each test
-        with sqlite3.connect(db.db_file) as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM users")
-            conn.commit()
-        db.create_user('testuser', generate_password_hash('password'), 'viewer')
-        db.create_user('admin', generate_password_hash('admin'), 'admin', is_default_admin=True)
+    app = main.app
+    app.config.update({
+        "TESTING": True,
+        "WTF_CSRF_ENABLED": False,
+        "DATABASE_FILE": db_path,
+    })
 
-    yield client
+    # Create a new database instance for testing and monkeypatch the main.db
+    main.db = Database(app.config['DATABASE_FILE'])
+
+    with app.test_client() as client:
+        with app.app_context():
+            # Seed the test database
+            main.db.create_user('testuser', generate_password_hash('password'), 'viewer')
+            main.db.create_user('admin', generate_password_hash('admin'), 'admin', is_default_admin=True)
+        yield client
+
+    # Clean up the temporary database file
+    os.close(db_fd)
+    os.unlink(db_path)
 
 def test_login_page(client):
     """Test that the login page loads correctly."""
