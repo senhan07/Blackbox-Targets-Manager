@@ -86,7 +86,8 @@ def index():
 def get_targets():
     has_temp_changes = len(db.temp_changes['added']) > 0 or \
                       len(db.temp_changes['deleted']) > 0 or \
-                      len(db.temp_changes['toggled']) > 0
+                      len(db.temp_changes['toggled']) > 0 or \
+                      len(db.temp_changes['edited']) > 0
 
     targets = db.get_all_targets(use_temp=has_temp_changes)
     if not has_temp_changes:

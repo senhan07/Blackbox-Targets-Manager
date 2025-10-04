@@ -926,6 +926,7 @@
     let targets = [];
     let currentEditingId = null;
     let selectedTargetIds = [];
+    let lastSelectedRowId = null;
 
     // Track unsaved changes
     let hasUnsavedChanges = false;
@@ -1045,12 +1046,30 @@
             ${actionsHtml}
           `;
           row.addEventListener('click', (e) => {
-            if (e.ctrlKey) {
+            if (e.shiftKey && lastSelectedRowId) {
+                const allRows = Array.from(tbody.querySelectorAll('tr'));
+                const lastIndex = allRows.findIndex(r => parseInt(r.dataset.targetId) === lastSelectedRowId);
+                const currentIndex = allRows.findIndex(r => parseInt(r.dataset.targetId) === target.id);
+
+                const start = Math.min(lastIndex, currentIndex);
+                const end = Math.max(lastIndex, currentIndex);
+
+                for (let i = start; i <= end; i++) {
+                    const rowToSelect = allRows[i];
+                    const targetIdToSelect = parseInt(rowToSelect.dataset.targetId);
+                    if (!selectedTargetIds.includes(targetIdToSelect)) {
+                        selectedTargetIds.push(targetIdToSelect);
+                        rowToSelect.classList.add('selected-row');
+                    }
+                }
+            } else if (e.ctrlKey) {
                 toggleRowSelection(row, target.id);
+                lastSelectedRowId = target.id;
             } else {
                 document.querySelectorAll('.selected-row').forEach(r => r.classList.remove('selected-row'));
                 selectedTargetIds = [target.id];
                 row.classList.add('selected-row');
+                lastSelectedRowId = target.id;
             }
           });
 
