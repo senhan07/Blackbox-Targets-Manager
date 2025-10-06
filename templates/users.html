@@ -40,6 +40,12 @@
             font-size: 12px;
             cursor: pointer;
         }
+        .button-danger {
+            background-color: #dc3545;
+        }
+        .button-danger:hover {
+            background-color: #c82333;
+        }
         .add-user-form {
             margin-top: 20px;
         }
@@ -159,7 +165,7 @@
                     <td>
                         <form class="change-role-form" method="post" action="{{ url_for('change_role_route', user_id=user.id) }}" style="display:inline;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <select name="role">
+                            <select name="role" {% if user.id == current_user_id %}disabled{% endif %}>
                                 <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
                                 <option value="viewer" {% if user.role == 'viewer' %}selected{% endif %}>Viewer</option>
                             </select>
@@ -184,7 +190,7 @@
                             {% if users|length > 1 %}
                             <form class="delete-user-form" method="post" action="{{ url_for('delete_user_route', user_id=user.id) }}" style="display:inline; margin-left: 10px;">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                <button type="submit" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
+                                <button type="submit" class="button-danger" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
                             </form>
                             {% endif %}
                         {% endif %}

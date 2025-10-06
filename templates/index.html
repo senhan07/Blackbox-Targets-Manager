@@ -56,6 +56,12 @@
     .header-button:hover {
       opacity: 0.9;
     }
+    .button-danger {
+        background-color: #dc3545 !important;
+    }
+    .button-danger:hover {
+        background-color: #c82333 !important;
+    }
 
     /* Add Target Options styles */
     .add-target-options {
@@ -704,7 +710,7 @@
         <ul>
             <li id="context-enable">Enable</li>
             <li id="context-disable">Disable</li>
-            <li id="context-remove">Remove</li>
+            <li id="context-remove" class="button-danger">Remove</li>
         </ul>
     </div>
   <div id="toastContainer"></div>
@@ -720,7 +726,7 @@
       <button onclick="saveChanges()" class="header-button generate">Save & Generate YAML</button>
       {% endif %}
       <a href="/users" class="header-button" style="text-decoration: none;"><i class="fas fa-user"></i> {{ username }}</a>
-      <a href="/logout" class="header-button" style="text-decoration: none;"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      <a href="/logout" class="header-button button-danger" style="text-decoration: none;"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
   </div>
 
@@ -1017,7 +1023,7 @@
                   <div class="action-buttons">
                     <button onclick="toggleTarget(${target.id})">On/Off</button>
                     <button onclick="openEditModal(${target.id})">Edit</button>
-                    <button color="red" onclick="removeTarget(${target.id})">Remove</button>
+                    <button class="button-danger" onclick="removeTarget(${target.id})">Remove</button>
                   </div>
                 </td>
               `;

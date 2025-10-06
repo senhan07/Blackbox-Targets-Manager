@@ -297,6 +297,9 @@ def change_password_route(user_id):
 @login_required
 @admin_required
 def change_role_route(user_id):
+    if user_id == session.get('user_id'):
+        return jsonify({'error': 'You cannot change your own role.'}), 403
+
     new_role = request.form.get('role')
     if not new_role or new_role not in ['admin', 'viewer']:
         return jsonify({'error': 'Invalid role specified.'}), 400
