@@ -1640,6 +1640,7 @@
 
             const response = await fetch('/target', {
               method: 'POST',
+              headers: { 'X-CSRFToken': csrfToken },
               body: formData
             });
 
