@@ -63,6 +63,44 @@
         background-color: #c82333 !important;
     }
 
+    /* User Dropdown */
+    .user-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .user-dropdown .user-button {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        background-color: #f1f1f1;
+        min-width: 160px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+        z-index: 1;
+        right: 0;
+        border-radius: 5px;
+    }
+
+    .dropdown-content a {
+        color: black;
+        padding: 12px 16px;
+        text-decoration: none;
+        display: block;
+    }
+
+    .dropdown-content a:hover {
+        background-color: #ddd;
+    }
+
+    .dropdown-content.show {
+        display: block;
+    }
+
     /* Add Target Options styles */
     .add-target-options {
       display: flex;
@@ -725,7 +763,14 @@
       </button>
       <button onclick="saveChanges()" class="header-button generate">Save & Generate YAML</button>
       {% endif %}
-      <a href="/users" class="header-button" style="text-decoration: none;"><i class="fas fa-user"></i> {{ username }}</a>
+      <div class="user-dropdown">
+        <button class="header-button user-button"><i class="fas fa-user"></i> {{ username }} <i class="fas fa-caret-down"></i></button>
+        <div class="dropdown-content">
+            <a href="/settings" id="settingsLink">Settings</a>
+            <a href="/users" id="userManagementLink">User Management</a>
+            <a href="#" id="exportLink">Export</a>
+        </div>
+      </div>
       <a href="/logout" class="header-button button-danger" style="text-decoration: none;"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
   </div>
@@ -1895,6 +1940,374 @@
       note.style.display = 'none';
     }
   });
+  </script>
+
+  <!-- Idle Timeout Warning Modal -->
+  <div id="idleWarningModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+      <div class="modal-header">
+        <h2 class="modal-title">Session Timeout Warning</h2>
+      </div>
+      <div class="modal-body">
+        <p>You will be logged out in <span id="idleWarningCountdown">60</span> seconds due to inactivity.</p>
+        <p>Click the button below to stay logged in.</p>
+      </div>
+      <div class="modal-footer" style="text-align: center; margin-top: 20px;">
+        <button id="stayLoggedInBtn" class="header-button generate">Stay Logged In</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Modal -->
+  <div id="exportModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Export Targets</h2>
+        <button class="close-modal" id="closeExportModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="filter-builder">
+          <h4>Filters</h4>
+          <div id="filter-rows">
+            <!-- Filter rows will be added here dynamically -->
+          </div>
+          <button id="addFilterBtn" class="header-button primary" style="margin-top: 10px;"><i class="fas fa-plus"></i> Add Filter</button>
+        </div>
+        <div class="preview-section" style="margin-top: 20px;">
+          <h4>Preview</h4>
+          <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 10px;">
+            <span>Show:</span>
+            <select id="previewRowCount" style="margin-left: 5px;">
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div style="overflow-x: auto;">
+            <table id="exportPreviewTable" class="preview-table">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="text-align: right; margin-top: 20px;">
+        <button id="exportCsvBtn" class="header-button generate"><i class="fas fa-file-csv"></i> Export as CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const userDropdown = document.querySelector('.user-dropdown');
+        const userButton = userDropdown.querySelector('.user-button');
+        const dropdownContent = userDropdown.querySelector('.dropdown-content');
+
+        const settingsLink = document.getElementById('settingsLink');
+        const userManagementLink = document.getElementById('userManagementLink');
+        const exportLink = document.getElementById('exportLink');
+        const userRole = '{{ user_role }}';
+
+        const exportModal = document.getElementById('exportModal');
+
+        userButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            dropdownContent.classList.toggle('show');
+        });
+
+        window.addEventListener('click', (event) => {
+            if (!userDropdown.contains(event.target)) {
+                if (dropdownContent.classList.contains('show')) {
+                    dropdownContent.classList.remove('show');
+                }
+            }
+        });
+
+        if (userRole !== 'admin') {
+            settingsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showToast('Access Denied: You do not have permission to view this page.', 'error');
+            });
+            userManagementLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showToast('Access Denied: You do not have permission to view this page.', 'error');
+            });
+        }
+
+        exportLink.onclick = (e) => {
+            e.preventDefault();
+            exportModal.style.display = 'block';
+            if (filterRowsContainer.children.length === 0) {
+                createFilterRow();
+            }
+            updatePreview();
+        };
+
+        // Modal and button elements
+        const closeExportModalBtn = document.getElementById('closeExportModal');
+
+        // Filter elements
+        const addFilterBtn = document.getElementById('addFilterBtn');
+        const filterRowsContainer = document.getElementById('filter-rows');
+
+        // Preview elements
+        const previewTable = document.getElementById('exportPreviewTable');
+        const previewTableHead = previewTable.querySelector('thead');
+        const previewTableBody = previewTable.querySelector('tbody');
+        const previewRowCountSelect = document.getElementById('previewRowCount');
+
+        // Export button
+        const exportCsvBtn = document.getElementById('exportCsvBtn');
+
+        // CSRF token for POST requests
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        // Available columns for filtering
+        const tableHeaders = [
+            'address', 'instance', 'module', 'zone', 'service',
+            'device_type', 'connection_type', 'location', 'short_name', 'enabled'
+        ];
+
+        // Store for the full filtered dataset from the backend
+        let filteredData = [];
+
+        // --- Functions ---
+
+        // Fetches data from the backend based on current filters
+        async function updatePreview() {
+            const filters = [];
+            filterRowsContainer.querySelectorAll('.filter-row').forEach(row => {
+                const field = row.querySelector('.filter-field').value;
+                const operator = row.querySelector('.filter-operator').value;
+                const value = row.querySelector('.filter-value').value;
+                // Only add filter if value is not empty
+                if (value) {
+                    filters.push({ field, operator, value });
+                }
+            });
+
+            try {
+                const response = await fetch('/api/export/preview', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ filters })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    showToast(`Failed to fetch preview: ${errorData.error}`, 'error');
+                    return;
+                }
+
+                filteredData = await response.json();
+                renderPreviewTable();
+            } catch (error) {
+                console.error('Error fetching preview:', error);
+                showToast('An error occurred while fetching preview data.', 'error');
+            }
+        }
+
+        // Renders the data into the preview table
+        function renderPreviewTable() {
+            previewTableHead.innerHTML = '';
+            previewTableBody.innerHTML = '';
+
+            if (filteredData.length === 0) {
+                previewTableBody.innerHTML = `<tr><td colspan="${tableHeaders.length}" style="text-align: center;">No matching targets found.</td></tr>`;
+                return;
+            }
+
+            // Create and append table headers
+            const headerRow = document.createElement('tr');
+            tableHeaders.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                headerRow.appendChild(th);
+            });
+            previewTableHead.appendChild(headerRow);
+
+            // Populate table rows based on row count selection
+            const rowCount = parseInt(previewRowCountSelect.value, 10);
+            const dataToShow = filteredData.slice(0, rowCount);
+
+            dataToShow.forEach(target => {
+                const row = document.createElement('tr');
+                tableHeaders.forEach(header => {
+                    const td = document.createElement('td');
+                    td.textContent = target[header] !== undefined ? target[header] : '';
+                    row.appendChild(td);
+                });
+                previewTableBody.appendChild(row);
+            });
+        }
+
+        // Creates a new filter row in the UI
+        function createFilterRow() {
+            const row = document.createElement('div');
+            row.className = 'filter-row';
+            row.style.display = 'flex';
+            row.style.gap = '10px';
+            row.style.marginBottom = '10px';
+
+            const fieldSelect = document.createElement('select');
+            fieldSelect.className = 'filter-field';
+            tableHeaders.forEach(header => {
+                const option = document.createElement('option');
+                option.value = header;
+                option.textContent = header;
+                fieldSelect.appendChild(option);
+            });
+            fieldSelect.onchange = updatePreview;
+
+            const operatorSelect = document.createElement('select');
+            operatorSelect.className = 'filter-operator';
+            ['==', '!=', '~='].forEach(op => {
+                const option = document.createElement('option');
+                option.value = op;
+                option.textContent = op;
+                operatorSelect.appendChild(option);
+            });
+            operatorSelect.onchange = updatePreview;
+
+            const valueInput = document.createElement('input');
+            valueInput.className = 'filter-value';
+            valueInput.type = 'text';
+            valueInput.placeholder = 'Value';
+            valueInput.oninput = updatePreview;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            removeBtn.className = 'header-button button-danger';
+            removeBtn.onclick = () => {
+                row.remove();
+                updatePreview();
+            };
+
+            row.append(fieldSelect, operatorSelect, valueInput, removeBtn);
+            filterRowsContainer.appendChild(row);
+        }
+
+        // Converts the filtered data to a CSV string and triggers download
+        function exportToCsv() {
+            if (filteredData.length === 0) {
+                showToast('No data to export.', 'error');
+                return;
+            }
+
+            const delimiter = ';';
+            const headers = tableHeaders.join(delimiter);
+            const rows = filteredData.map(target => {
+                return tableHeaders.map(header => {
+                    const value = target[header] !== undefined ? target[header] : '';
+                    const stringValue = String(value);
+                    if (stringValue.includes(delimiter) || stringValue.includes('"') || stringValue.includes('\n')) {
+                        return `"${stringValue.replace(/"/g, '""')}"`;
+                    }
+                    return stringValue;
+                }).join(delimiter);
+            });
+
+            const csvContent = [headers, ...rows].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'blackbox-targets.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- Event Listeners ---
+
+        // Open modal and fetch initial preview
+        exportBtn.onclick = () => {
+            exportModal.style.display = 'block';
+            if (filterRowsContainer.children.length === 0) {
+                createFilterRow();
+            }
+            updatePreview();
+        };
+
+        // Close modal
+        closeExportModalBtn.onclick = () => {
+            exportModal.style.display = 'none';
+        };
+
+        // Add a new filter
+        addFilterBtn.onclick = createFilterRow;
+
+        // Update preview when row count changes
+        previewRowCountSelect.onchange = renderPreviewTable;
+
+        // Trigger CSV download
+        exportCsvBtn.onclick = exportToCsv;
+
+        // Close modal when clicking outside of it
+        window.onclick = (event) => {
+            if (event.target == exportModal) {
+                exportModal.style.display = 'none';
+            }
+        };
+
+        // --- Idle Lockout Logic ---
+        let idleTimer;
+        let warningTimer;
+        let countdownTimer;
+        const idleTimeoutMinutes = {{ idle_timeout }};
+
+        const idleWarningModal = document.getElementById('idleWarningModal');
+        const stayLoggedInBtn = document.getElementById('stayLoggedInBtn');
+        const countdownSpan = document.getElementById('idleWarningCountdown');
+
+        function startIdleWarning() {
+            let countdown = 60;
+            countdownSpan.textContent = countdown;
+            idleWarningModal.style.display = 'block';
+
+            countdownTimer = setInterval(() => {
+                countdown--;
+                countdownSpan.textContent = countdown;
+                if (countdown <= 0) {
+                    logoutUser();
+                }
+            }, 1000);
+        }
+
+        function logoutUser() {
+            window.location.href = '/logout';
+        }
+
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            clearTimeout(warningTimer);
+            clearInterval(countdownTimer);
+            idleWarningModal.style.display = 'none';
+
+            const timeoutMilliseconds = idleTimeoutMinutes * 60 * 1000;
+
+            // Set a timer to show the warning 60 seconds before the final logout
+            warningTimer = setTimeout(startIdleWarning, timeoutMilliseconds - 60000);
+
+            // Set the final logout timer
+            idleTimer = setTimeout(logoutUser, timeoutMilliseconds);
+        }
+
+        stayLoggedInBtn.addEventListener('click', () => {
+            resetIdleTimer();
+        });
+
+        // Events that reset the timer
+        window.addEventListener('click', resetIdleTimer);
+        window.addEventListener('keypress', resetIdleTimer);
+
+        // Start the timer on page load
+        resetIdleTimer();
+    });
   </script>
 </body>
 </html>
