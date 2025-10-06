@@ -7,11 +7,14 @@ from main import app as flask_app
 from database import Database
 from werkzeug.security import generate_password_hash
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 @pytest.fixture(scope="session")
 def app():
     """Session-wide test Flask application."""
 =======
+=======
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
 from _pytest.monkeypatch import MonkeyPatch
 import sqlite3
 
@@ -29,11 +32,15 @@ def app(session_monkeypatch):
     Uses a session-scoped monkeypatch to replace the global 'db' object in 'main'
     with a temporary database for the test session.
     """
+<<<<<<< HEAD
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
+=======
 >>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
     db_fd, db_path = tempfile.mkstemp()
 
     flask_app.config.update({
         "TESTING": True,
+<<<<<<< HEAD
 <<<<<<< HEAD
         "WTF_CSRF_ENABLED": True,  # Enable CSRF for realistic testing
         "DATABASE_FILE": db_path,
@@ -48,6 +55,8 @@ def app(session_monkeypatch):
         db.create_user('testuser', generate_password_hash('password'), 'viewer')
         db.create_user('admin', generate_password_hash('admin'), 'admin', is_default_admin=True)
 =======
+=======
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
         "WTF_CSRF_ENABLED": True,
         "DATABASE_FILE": db_path,
         "SERVER_NAME": "127.0.0.1"
@@ -61,6 +70,9 @@ def app(session_monkeypatch):
 
     with flask_app.app_context():
         test_db.init_db()
+<<<<<<< HEAD
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
+=======
 >>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
 
     yield flask_app
@@ -68,6 +80,7 @@ def app(session_monkeypatch):
     os.close(db_fd)
     os.unlink(db_path)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 def test_e2e_flow(live_server, page: Page):
     """
@@ -77,6 +90,8 @@ def test_e2e_flow(live_server, page: Page):
 
     # --- Admin Verification ---
 =======
+=======
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
 @pytest.fixture(scope="function")
 def clean_db(app):
     """Ensure the database is clean before each test function."""
@@ -104,6 +119,9 @@ def test_e2e_and_bug_fixes(live_server, page: Page, clean_db):
     base_url = live_server.url()
 
     # --- Login and Password Change ---
+<<<<<<< HEAD
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
+=======
 >>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
     page.goto(f"{base_url}/login")
     page.get_by_placeholder("Username").fill("admin")
@@ -112,22 +130,29 @@ def test_e2e_and_bug_fixes(live_server, page: Page, clean_db):
 
     page.wait_for_url(re.compile(f".*/force-change-password"))
 <<<<<<< HEAD
+<<<<<<< HEAD
 
     expect(page.get_by_role("heading", name="Change Your Default Password")).to_be_visible()
     page.get_by_placeholder("New Password").fill("new_password")
     page.get_by_placeholder("Confirm Password").fill("new_password")
 =======
+=======
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
     expect(page.get_by_role("heading", name="Change Your Default Password")).to_be_visible()
 
     # Use exact=True to resolve ambiguity
     page.get_by_label("New Password", exact=True).fill("new_password")
     page.get_by_label("Confirm New Password", exact=True).fill("new_password")
+<<<<<<< HEAD
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
+=======
 >>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
     page.get_by_role("button", name="Update Password").click()
 
     expect(page.get_by_text("Password updated successfully!")).to_be_visible()
     page.wait_for_url(f"{base_url}/")
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     expect(page.get_by_role("heading", name="Blackbox Targets Manager")).to_be_visible()
 
@@ -178,6 +203,8 @@ def test_e2e_and_bug_fixes(live_server, page: Page, clean_db):
     expect(page.get_by_text("Access Denied")).to_be_visible()
     page.screenshot(path="jules-scratch/verification/05_viewer_access_denied.png")
 =======
+=======
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
     # --- Verify "No Data" Message ---
     expect(page.get_by_text("No targets found.")).to_be_visible()
     page.screenshot(path="jules-scratch/verification/01_no_data_message.png")
@@ -217,5 +244,9 @@ def test_e2e_and_bug_fixes(live_server, page: Page, clean_db):
     expect(toast).to_have_text("Access Denied: You do not have permission to view this page.")
     page.screenshot(path="jules-scratch/verification/04_access_denied_toast_red.png")
 
+<<<<<<< HEAD
+    print("All visual and functional verifications passed.")
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
+=======
     print("All visual and functional verifications passed.")
 >>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c

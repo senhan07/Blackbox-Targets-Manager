@@ -41,6 +41,7 @@
       font-size: 12px;
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
 
     .header-button.generate {
       background-color: #28a745;
@@ -744,6 +745,8 @@
     }
 
 =======
+=======
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
     .header-button.generate { background-color: #28a745; }
     .header-button.primary { background-color: #007bff; }
     .header-button:hover { opacity: 0.9; }
@@ -779,6 +782,9 @@
     .toast.success { background-color: #28a745; }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+<<<<<<< HEAD
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
+=======
 >>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
   </style>
 </head>
@@ -788,6 +794,7 @@
     <h1 class="header-title">Blackbox Targets Manager</h1>
     <div class="header-actions">
 <<<<<<< HEAD
+<<<<<<< HEAD
       <input type="text" id="searchInput" placeholder="Type anything to search targets...">
       {% if user_role == 'admin' %}
       <button onclick="openAddTargetModal()" class="header-button primary">
@@ -795,6 +802,8 @@
       </button>
       <button onclick="saveChanges()" class="header-button generate">Save & Generate YAML</button>
       {% endif %}
+=======
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
 =======
 >>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
       <div class="user-dropdown">
@@ -890,6 +899,7 @@
                 setTimeout(() => toast.remove(), 500);
             }, 5000);
         }
+<<<<<<< HEAD
 
         const userDropdown = document.querySelector('.user-dropdown');
         userButton = userDropdown.querySelector('.user-button');
@@ -1125,8 +1135,16 @@
                 }
             }
         });
+=======
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
 
+        const userDropdown = document.querySelector('.user-dropdown');
+        userButton = userDropdown.querySelector('.user-button');
+        dropdownContent = userDropdown.querySelector('.dropdown-content');
+        userButton.addEventListener('click', (e) => { e.stopPropagation(); dropdownContent.classList.toggle('show'); });
+        window.addEventListener('click', () => { if (dropdownContent.classList.contains('show')) dropdownContent.classList.remove('show'); });
         if (userRole !== 'admin') {
+<<<<<<< HEAD
             const handleAccessDenied = (e) => {
                 e.preventDefault();
                 showToast('Access Denied: You do not have permission to view this page.', 'error');
@@ -1149,11 +1167,55 @@
             'address', 'instance', 'module', 'zone', 'service',
             'device_type', 'connection_type', 'location', 'short_name', 'enabled'
         ];
+=======
+            ['settingsLink', 'userManagementLink'].forEach(id => {
+                document.getElementById(id).addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showToast('Access Denied: You do not have permission to view this page.', 'error');
+                });
+            });
+        }
+
+        const table = document.getElementById('targetsTable');
+        const noDataMessage = document.getElementById('noDataMessage');
+        const tbody = table.querySelector('tbody');
+        async function loadTargets() {
+            try {
+                const response = await fetch('/targets');
+                const targets = await response.json();
+                tbody.innerHTML = '';
+                if (targets.length === 0) {
+                    table.style.display = 'none';
+                    noDataMessage.style.display = 'block';
+                } else {
+                    table.style.display = 'table';
+                    noDataMessage.style.display = 'none';
+                }
+            } catch (error) {
+                table.style.display = 'none';
+                noDataMessage.textContent = 'Error loading data.';
+                noDataMessage.style.display = 'block';
+            }
+        }
+        loadTargets();
+
+        const exportModal = document.getElementById('exportModal');
+        const exportLink = document.getElementById('exportLink');
+        const closeExportModalBtn = document.getElementById('closeExportModal');
+        const addFilterBtn = document.getElementById('addFilterBtn');
+        const filterRowsContainer = document.getElementById('filter-rows');
+        const previewRowCountSelect = document.getElementById('previewRowCount');
+        const exportCsvBtn = document.getElementById('exportCsvBtn');
+        const previewTableHead = document.querySelector('#exportPreviewTable thead');
+        const previewTableBody = document.querySelector('#exportPreviewTable tbody');
+        const tableHeaders = ['address', 'instance', 'module', 'zone', 'service', 'device_type', 'connection_type', 'location', 'short_name', 'enabled'];
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
         let filteredData = [];
 
         function createFilterRow() {
             const row = document.createElement('div');
             row.className = 'filter-row';
+<<<<<<< HEAD
             row.style.display = 'flex';
             row.style.gap = '10px';
             row.style.marginBottom = '10px';
@@ -1193,10 +1255,20 @@
             };
 
             row.append(fieldSelect, operatorSelect, valueInput, removeBtn);
+=======
+            row.style.cssText = 'display:flex; gap:10px; margin-bottom:10px;';
+            row.innerHTML = `<select class="filter-field">${tableHeaders.map(h => `<option value="${h}">${h}</option>`).join('')}</select><select class="filter-operator"><option>==</option><option>!=</option><option>~=</option></select><input type="text" class="filter-value" placeholder="Value"><button class="header-button button-danger"><i class="fas fa-trash"></i></button>`;
+            row.querySelector('button').onclick = () => { row.remove(); updatePreview(); };
+            row.querySelectorAll('select, input').forEach(el => {
+                el.onchange = updatePreview;
+                if(el.tagName === 'INPUT') el.oninput = updatePreview;
+            });
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
             filterRowsContainer.appendChild(row);
         }
 
         async function updatePreview() {
+<<<<<<< HEAD
             const filters = [];
             filterRowsContainer.querySelectorAll('.filter-row').forEach(row => {
                 const field = row.querySelector('.filter-field').value;
@@ -1289,6 +1361,49 @@
             }
             updatePreview();
         });
+=======
+            const filters = Array.from(filterRowsContainer.children).map(r => ({ field: r.querySelector('.filter-field').value, operator: r.querySelector('.filter-operator').value, value: r.querySelector('.filter-value').value })).filter(f => f.value);
+            try {
+                const response = await fetch('/api/export/preview', { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken}, body: JSON.stringify({ filters }) });
+                if (!response.ok) throw new Error('Failed to fetch preview');
+                filteredData = await response.json();
+                renderPreviewTable();
+            } catch (error) { showToast('Error fetching preview.', 'error'); }
+        }
+
+        function renderPreviewTable() {
+            previewTableHead.innerHTML = `<tr>${tableHeaders.map(h => `<th>${h}</th>`).join('')}</tr>`;
+            previewTableBody.innerHTML = '';
+            const dataToShow = filteredData.slice(0, parseInt(previewRowCountSelect.value, 10));
+            if (dataToShow.length === 0) {
+                previewTableBody.innerHTML = `<tr><td colspan="${tableHeaders.length}" style="text-align: center;">No matching targets.</td></tr>`;
+                return;
+            }
+            dataToShow.forEach(target => {
+                const row = document.createElement('tr');
+                row.innerHTML = tableHeaders.map(h => `<td>${target[h] !== undefined ? target[h] : ''}</td>`).join('');
+                previewTableBody.appendChild(row);
+            });
+        }
+
+        function exportToCsv() {
+            if (filteredData.length === 0) return showToast('No data to export.', 'error');
+            const delimiter = ';';
+            const headers = tableHeaders.join(delimiter);
+            const rows = filteredData.map(target => tableHeaders.map(h => {
+                const val = String(target[h] !== undefined ? target[h] : '');
+                return val.includes(delimiter) || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
+            }).join(delimiter));
+            const csv = [headers, ...rows].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'blackbox-targets.csv';
+            link.click();
+        }
+
+        exportLink.addEventListener('click', (e) => { e.preventDefault(); exportModal.style.display = 'block'; updatePreview(); });
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
         closeExportModalBtn.addEventListener('click', () => { exportModal.style.display = 'none'; });
         addFilterBtn.addEventListener('click', createFilterRow);
         previewRowCountSelect.addEventListener('change', renderPreviewTable);
@@ -1302,6 +1417,7 @@
         const countdownSpan = document.getElementById('idleWarningCountdown');
 
         function startIdleWarning() {
+<<<<<<< HEAD
             let countdown = 60;
             countdownSpan.textContent = countdown;
             idleWarningModal.style.display = 'block';
@@ -1336,6 +1452,34 @@
                 exportModal.style.display = 'none';
             }
         });
+=======
+            let count = 60;
+            countdownSpan.textContent = count;
+            idleWarningModal.style.display = 'block';
+            countdownTimer = setInterval(() => {
+                count--;
+                countdownSpan.textContent = count;
+                if (count <= 0) window.location.href = '/logout';
+            }, 1000);
+        }
+
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            clearTimeout(warningTimer);
+            clearInterval(countdownTimer);
+            idleWarningModal.style.display = 'none';
+            const timeoutMs = idleTimeoutMinutes * 60 * 1000;
+            if (timeoutMs > 60000) {
+                warningTimer = setTimeout(startIdleWarning, timeoutMs - 60000);
+            }
+            idleTimer = setTimeout(() => window.location.href = '/logout', timeoutMs);
+        }
+
+        stayLoggedInBtn.addEventListener('click', resetIdleTimer);
+        ['click', 'keypress'].forEach(evt => window.addEventListener(evt, resetIdleTimer));
+        resetIdleTimer();
+        window.addEventListener('click', (event) => { if (event.target == exportModal) exportModal.style.display = 'none'; });
+>>>>>>> 53f13ebda89e6d6460280047d74ee3b7b91b3a8c
     });
   </script>
 </body>
