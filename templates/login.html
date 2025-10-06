@@ -51,24 +51,125 @@
             color: red;
             margin-bottom: 15px;
         }
+        /* Toast Container */
+        #toastContainer {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 1000;
+        }
+
+        /* Toast Notification */
+        .toast {
+          background-color: #333;
+          color: white;
+          padding: 15px 20px;
+          border-radius: 8px;
+          margin-bottom: 10px;
+          min-width: 250px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          animation: slideIn 0.5s ease-out;
+        }
+        .toast.error {
+            background-color: #dc3545;
+        }
+        .toast-close-button {
+            background: none;
+            border: none;
+            color: inherit;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0 5px;
+            margin-left: 15px;
+            line-height: 1;
+            opacity: 0.7;
+        }
+
+        .toast-close-button:hover {
+            opacity: 1;
+        }
+
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        @keyframes slideOut {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
     </style>
 </head>
 <body>
+    <div id="toastContainer"></div>
     <div class="login-container">
         <h1>Login</h1>
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <p class="error">{{ message }}</p>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        <form method="post" action="/login">
+        <form id="loginForm" method="post" action="/login">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <input type="text" name="username" placeholder="Username" required>
             <input type="password" name="password" placeholder="Password" required>
             <button type="submit">Login</button>
         </form>
     </div>
+
+    <script>
+        // Toast notification system
+        function showToast(message, type = 'info') {
+          const toastContainer = document.getElementById('toastContainer');
+          const toast = document.createElement('div');
+          toast.className = `toast ${type}`;
+          toast.innerHTML = `${message} <button class="toast-close-button">&times;</button>`;
+
+          const closeButton = toast.querySelector('.toast-close-button');
+          let timeoutId = null;
+
+          function closeToast() {
+              toast.style.animation = 'slideOut 0.5s ease-out forwards';
+              setTimeout(() => {
+                  if (toast.parentNode) {
+                      toast.parentNode.removeChild(toast);
+                  }
+                  if(timeoutId) clearTimeout(timeoutId);
+              }, 500);
+          }
+
+          closeButton.addEventListener('click', closeToast);
+          timeoutId = setTimeout(closeToast, 5000);
+          toastContainer.appendChild(toast);
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                window.location.href = data.redirect;
+            } else {
+                showToast(data.error, 'error');
+            }
+        });
+    </script>
 </body>
 </html>

@@ -55,15 +55,22 @@ class Database:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT NOT NULL UNIQUE,
                     password TEXT NOT NULL,
-                    role TEXT NOT NULL DEFAULT 'viewer',
-                    password_changed INTEGER DEFAULT 0
+                    role TEXT NOT NULL DEFAULT 'viewer'
                 )
             ''')
-            # Add password_changed column if it doesn't exist for backward compatibility
-            try:
-                cursor.execute('ALTER TABLE users ADD COLUMN password_changed INTEGER DEFAULT 0')
-            except sqlite3.OperationalError:
-                pass  # Column already exists
+
+            # Add columns if they don't exist for backward compatibility
+            columns = [
+                ('password_changed', 'INTEGER DEFAULT 0'),
+                ('is_enabled', 'INTEGER DEFAULT 1')
+            ]
+
+            for column, definition in columns:
+                try:
+                    cursor.execute(f'ALTER TABLE users ADD COLUMN {column} {definition}')
+                except sqlite3.OperationalError:
+                    pass # Column already exists
+
             conn.commit()
 
     def get_all_users(self):
@@ -71,7 +78,7 @@ class Database:
         with sqlite3.connect(self.db_file) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute('SELECT id, username, role FROM users')
+            cursor.execute('SELECT id, username, role, is_enabled FROM users')
             return [dict(row) for row in cursor.fetchall()]
 
     def create_user(self, username, password, role='viewer', is_default_admin=False):
@@ -129,6 +136,14 @@ class Database:
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
             cursor.execute('UPDATE users SET role = ? WHERE id = ?', (new_role, user_id))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def toggle_user_status(self, user_id):
+        """Toggle the is_enabled status of a user"""
+        with sqlite3.connect(self.db_file) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE users SET is_enabled = NOT is_enabled WHERE id = ?', (user_id,))
             conn.commit()
             return cursor.rowcount > 0
 

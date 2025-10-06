@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash, Response
 from flask_wtf.csrf import CSRFProtect
 from datetime import datetime
 import uuid
@@ -22,7 +22,6 @@ def login_required(f):
 
         if session.get('force_password_change'):
             if request.endpoint not in ['force_change_password_route', 'logout', 'static']:
-                flash('Please change the default password before proceeding.')
                 return redirect(url_for('force_change_password_route'))
 
         return f(*args, **kwargs)
@@ -55,19 +54,20 @@ def login():
         user = db.get_user_by_username(username)
 
         if user and check_password_hash(user['password'], password):
+            if not user['is_enabled']:
+                return jsonify({'error': 'User is disabled. Please contact an administrator.'}), 403
+
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['role'] = user['role']
 
             if user['username'] == 'admin' and not user['password_changed']:
                 session['force_password_change'] = True
-                flash('Please change the default password before proceeding.')
-                return redirect(url_for('force_change_password_route'))
+                return jsonify({'redirect': url_for('force_change_password_route')})
 
-            return redirect(url_for('index'))
+            return jsonify({'redirect': url_for('index')})
         else:
-            flash('Invalid username or password')
-            return redirect(url_for('login'))
+            return jsonify({'error': 'Invalid username or password'}), 401
     return render_template('login.html')
 
 @app.route('/logout')
@@ -218,34 +218,36 @@ def create_user_route():
     role = request.form.get('role')
 
     if not all([username, password, role]):
-        flash('All fields are required.')
-        return redirect(url_for('users_page'))
+        return jsonify({'error': 'All fields are required.'}), 400
 
     hashed_password = generate_password_hash(password)
     if db.create_user(username, hashed_password, role):
-        flash('User created successfully!')
+        return jsonify({'message': 'User created successfully!'})
     else:
-        flash('Username already exists.')
-
-    return redirect(url_for('users_page'))
+        return jsonify({'error': 'Username already exists.'}), 409
 
 @app.route('/users/delete/<int:user_id>', methods=['POST'])
 @login_required
 @admin_required
 def delete_user_route(user_id):
     if user_id == session.get('user_id'):
-        flash("You cannot delete your own account.")
-        return redirect(url_for('users_page'))
+        return jsonify({'error': 'You cannot delete your own account.'}), 403
 
-    if len(db.get_all_users()) <= 1:
-        flash('Cannot delete the last user.')
-        return redirect(url_for('users_page'))
+    users = db.get_all_users()
+    if len(users) <= 1:
+        return jsonify({'error': 'Cannot delete the last user.'}), 403
+
+    target_user = next((user for user in users if user['id'] == user_id), None)
+
+    if target_user and target_user['role'] == 'admin':
+        admin_users = [user for user in users if user['role'] == 'admin']
+        if len(admin_users) <= 1:
+            return jsonify({'error': 'Cannot delete the last admin user.'}), 403
 
     if db.delete_user(user_id):
-        flash('User deleted successfully!')
+        return jsonify({'message': 'User deleted successfully!'})
     else:
-        flash('Error deleting user.')
-    return redirect(url_for('users_page'))
+        return jsonify({'error': 'Error deleting user.'}), 500
 
 @app.route('/force-change-password', methods=['GET', 'POST'])
 def force_change_password_route():
@@ -257,16 +259,14 @@ def force_change_password_route():
         confirm_password = request.form.get('confirm_password')
 
         if not new_password or new_password != confirm_password:
-            flash('Passwords do not match or are empty.')
-            return render_template('force_change_password.html', username=session.get('username'))
+            return jsonify({'error': 'Passwords do not match or are empty.'}), 400
 
         hashed_password = generate_password_hash(new_password)
         if db.update_user_password(session['user_id'], hashed_password):
             session.pop('force_password_change', None)
-            flash('Password updated successfully! You can now use the application.')
-            return redirect(url_for('index'))
+            return jsonify({'message': 'Password updated successfully! You can now use the application.', 'redirect': url_for('index')})
         else:
-            flash('Error updating password.')
+            return jsonify({'error': 'Error updating password.'}), 500
 
     return render_template('force_change_password.html', username=session.get('username'))
 
@@ -276,24 +276,20 @@ def force_change_password_route():
 def change_password_route(user_id):
     user = db.get_user_by_id(user_id)
     if not user:
-        flash('User not found.')
-        return redirect(url_for('users_page'))
+        return jsonify({'error': 'User not found.'}), 404
 
     if request.method == 'POST':
         new_password = request.form.get('new_password')
         confirm_password = request.form.get('confirm_password')
 
-        if not new_password or not confirm_password:
-            flash('Both password fields are required.')
-            return render_template('change_password.html', user_id=user_id, username=user['username'])
+        if not new_password or not confirm_password or new_password != confirm_password:
+            return jsonify({'error': 'Passwords do not match or are empty.'}), 400
 
         hashed_password = generate_password_hash(new_password)
         if db.update_user_password(user_id, hashed_password):
-            flash('Password updated successfully!')
-            return redirect(url_for('users_page'))
+            return jsonify({'message': 'Password updated successfully!'})
         else:
-            flash('Error updating password.')
-            return render_template('change_password.html', user_id=user_id, username=user['username'])
+            return jsonify({'error': 'Error updating password.'}), 500
 
     return render_template('change_password.html', user_id=user_id, username=user['username'])
 
@@ -301,20 +297,51 @@ def change_password_route(user_id):
 @login_required
 @admin_required
 def change_role_route(user_id):
+    if user_id == session.get('user_id'):
+        return jsonify({'error': 'You cannot change your own role.'}), 403
+
     new_role = request.form.get('role')
     if not new_role or new_role not in ['admin', 'viewer']:
-        flash('Invalid role specified.')
-        return redirect(url_for('users_page'))
+        return jsonify({'error': 'Invalid role specified.'}), 400
 
     if db.update_user_role(user_id, new_role):
-        flash('User role updated successfully!')
+        return jsonify({'message': 'User role updated successfully!'})
     else:
-        flash('Error updating user role.')
+        return jsonify({'error': 'Error updating user role.'}), 500
 
-    return redirect(url_for('users_page'))
+@app.route('/users/toggle-status/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def toggle_user_status_route(user_id):
+    if user_id == session.get('user_id'):
+        return jsonify({'error': "You cannot disable your own account."}), 403
+
+    users = db.get_all_users()
+    target_user = next((user for user in users if user['id'] == user_id), None)
+
+    if target_user and target_user['role'] == 'admin':
+        admin_users = [user for user in users if user['role'] == 'admin' and user['is_enabled']]
+        if len(admin_users) <= 1 and target_user['is_enabled']:
+            return jsonify({'error': 'Cannot disable the last enabled admin user.'}), 403
+
+    if db.toggle_user_status(user_id):
+        return jsonify({'message': 'User status updated successfully!'})
+    else:
+        return jsonify({'error': 'Error updating user status.'}), 500
+
+
+@app.route('/raw-yaml')
+@login_required
+def raw_yaml():
+    try:
+        with open(app.config['BLACKBOX_FILE'], 'r') as f:
+            content = f.read()
+        return Response(content, mimetype='text/plain')
+    except FileNotFoundError:
+        return "YAML file not found. Please save changes on the main page to generate it.", 404
 
 
 if __name__ == '__main__':
     with app.app_context():
         create_default_user()
-    app.run()
+    app.run(port=8844)

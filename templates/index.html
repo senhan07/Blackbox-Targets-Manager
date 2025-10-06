@@ -56,6 +56,12 @@
     .header-button:hover {
       opacity: 0.9;
     }
+    .button-danger {
+        background-color: #dc3545 !important;
+    }
+    .button-danger:hover {
+        background-color: #c82333 !important;
+    }
 
     /* Add Target Options styles */
     .add-target-options {
@@ -704,7 +710,7 @@
         <ul>
             <li id="context-enable">Enable</li>
             <li id="context-disable">Disable</li>
-            <li id="context-remove">Remove</li>
+            <li id="context-remove" class="button-danger">Remove</li>
         </ul>
     </div>
   <div id="toastContainer"></div>
@@ -720,7 +726,7 @@
       <button onclick="saveChanges()" class="header-button generate">Save & Generate YAML</button>
       {% endif %}
       <a href="/users" class="header-button" style="text-decoration: none;"><i class="fas fa-user"></i> {{ username }}</a>
-      <a href="/logout" class="header-button" style="text-decoration: none;"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      <a href="/logout" class="header-button button-danger" style="text-decoration: none;"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
   </div>
 
@@ -867,13 +873,6 @@
   {% endif %}
 
   <div class="main-content">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
   <div id="hideColumnsCheckboxes">
     <label class="checkbox-label"><input type="checkbox" value="address" checked> Prober Server</label>
     <label class="checkbox-label"><input type="checkbox" value="instance" checked> Target Address</label>
@@ -1024,7 +1023,7 @@
                   <div class="action-buttons">
                     <button onclick="toggleTarget(${target.id})">On/Off</button>
                     <button onclick="openEditModal(${target.id})">Edit</button>
-                    <button color="red" onclick="removeTarget(${target.id})">Remove</button>
+                    <button class="button-danger" onclick="removeTarget(${target.id})">Remove</button>
                   </div>
                 </td>
               `;
@@ -1336,7 +1335,7 @@
                     headers: { 'X-CSRFToken': csrfToken }
                 });
                 const data = await response.json();
-                showToast('Changes saved successfully!', 'info');
+                showToast(data.message, 'success');
                 updateUnsavedChanges(false);
                 loadTargets(); // Refresh the table
             } catch (error) {
@@ -1355,7 +1354,7 @@
                     headers: { 'X-CSRFToken': csrfToken }
                 });
                 const data = await response.json();
-                showToast('Changes discarded', 'info');
+                showToast(data.message, 'info');
                 updateUnsavedChanges(false);
                 loadTargets(); // Refresh the table
             } catch (error) {
@@ -1579,6 +1578,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
           },
           body: JSON.stringify({ addresses: csvTargetAddresses })
         });
@@ -1646,6 +1646,7 @@
 
             const response = await fetch('/target', {
               method: 'POST',
+              headers: { 'X-CSRFToken': csrfToken },
               body: formData
             });
 
@@ -1843,202 +1844,6 @@
         previewCSV(fileInput);
       }
     });
-
-    async function importFromCSV() {
-      try {
-        if (csvRows.length === 0) {
-          showToast('Please select a CSV file first', 'error');
-          return;
-        }
-
-        const fileHeaders = csvRows[0].map(header => header.toLowerCase());
-        let importedCount = 0;
-        let errorCount = 0;
-        const errors = [];
-
-      // First, collect all target addresses from the CSV
-      const csvTargetAddresses = [];
-      for (let i = 1; i < csvRows.length; i++) {
-        if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
-        const instanceIndex = fileHeaders.indexOf('instance');
-        const targetAddress = csvRows[i][instanceIndex];
-        if (targetAddress) {
-          csvTargetAddresses.push(targetAddress);
-        }
-      }
-
-      // Check all addresses against the database at once
-      const response = await fetch('/check_addresses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ addresses: csvTargetAddresses })
-      });
-
-        const existingAddresses = await response.json();
-
-        if (existingAddresses.duplicates && existingAddresses.duplicates.length > 0) {
-          // Add errors for all existing addresses
-          existingAddresses.duplicates.forEach(address => {
-            const rowIndex = csvRows.findIndex((row, index) =>
-              index > 0 && row[fileHeaders.indexOf('instance')] === address
-            );
-            if (rowIndex !== -1) {
-              errorCount++;
-              const rowData = {};
-              fileHeaders.forEach((header, index) => {
-                rowData[header] = csvRows[rowIndex][index] || '';
-              });
-              const errorMsg = `Row ${rowIndex} (${rowData.short_name}): Target address "${address}" already exists in database`;
-              errors.push(errorMsg);
-            }
-          });
-
-          // Show validation message with duplicate count
-          showValidationMessage(
-            `Found ${existingAddresses.duplicates.length} duplicate target addresses in database. Check error details below.`,
-            true
-          );
-
-          // Update the summary section early to show duplicates
-          document.getElementById('errorCount').textContent = errorCount;
-          document.getElementById('totalCount').textContent = csvTargetAddresses.length;
-          document.getElementById('importSummary').style.display = 'block';
-
-          // Show error details
-          const errorList = document.getElementById('errorList');
-          const errorDetails = document.getElementById('errorDetails');
-          errorDetails.innerHTML = errors.map(err => `<div class="error-item">${err}</div>`).join('');
-          errorList.style.display = 'block';
-
-          // Ask user if they want to continue with non-duplicate addresses
-          if (!confirm('Some target addresses already exist in the database. Do you want to continue importing only the new addresses?')) {
-            return;
-          }
-        }
-
-      // Hide the preview table and show loading state
-      document.getElementById('previewTable').style.display = 'none';
-      showValidationMessage('Importing targets...', false);
-
-      // Check for duplicates within the CSV itself
-      const seenAddresses = new Set();
-      const duplicatesInCSV = [];
-
-      for (let i = 1; i < csvRows.length; i++) {
-        if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
-        const instanceIndex = fileHeaders.indexOf('instance');
-        const targetAddress = csvRows[i][instanceIndex];
-
-        if (seenAddresses.has(targetAddress)) {
-          duplicatesInCSV.push({
-            row: i + 1,
-            address: targetAddress,
-            short_name: csvRows[i][fileHeaders.indexOf('short_name')]
-          });
-        } else {
-          seenAddresses.add(targetAddress);
-        }
-      }
-
-      // Handle duplicates found within the CSV
-      if (duplicatesInCSV.length > 0) {
-        duplicatesInCSV.forEach(dup => {
-          errorCount++;
-          const errorMsg = `Row ${dup.row} (${dup.short_name}): Duplicate target address "${dup.address}" found within the CSV`;
-          errors.push(errorMsg);
-        });
-
-        // Show validation message with duplicate count
-        showValidationMessage(
-          `Found ${duplicatesInCSV.length} duplicate target addresses within the CSV file. Check error details below.`,
-          true
-        );
-        return;
-      }
-
-      // Process each row after validation
-      for (let i = 1; i < csvRows.length; i++) {
-        if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
-
-        // Skip rows with addresses that exist in the database
-        const currentAddress = csvRows[i][fileHeaders.indexOf('instance')];
-        if (existingAddresses.duplicates && existingAddresses.duplicates.includes(currentAddress)) {
-          continue;
-        }
-
-        const rowData = {};
-        fileHeaders.forEach((header, index) => {
-          rowData[header] = csvRows[i][index] || '';
-        });
-
-        try {
-          const formData = new FormData();
-          for (const [key, value] of Object.entries(rowData)) {
-            formData.append(key, value);
-          }
-
-          const response = await fetch('/target', {
-            method: 'POST',
-            body: formData
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            errorCount++;
-            let errorMsg;
-            if (data.error === 'DUPLICATE_TARGET') {
-              errorMsg = `Row ${i + 1} (${rowData.short_name}): Target address "${rowData.instance}" already exists in database`;
-            } else {
-              errorMsg = `Row ${i + 1} (${rowData.short_name}): ${data.message || response.statusText}`;
-            }
-            errors.push(errorMsg);
-            console.error(errorMsg);
-          } else {
-            importedCount++;
-          }
-        } catch (error) {
-          errorCount++;
-          const errorMsg = `Row ${i + 1} (${rowData.short_name}): ${error.message}`;
-          errors.push(errorMsg);
-          console.error(errorMsg);
-        }
-      }
-        // Update the summary section
-        document.getElementById('successCount').textContent = importedCount;
-        document.getElementById('totalCount').textContent = importedCount + errorCount;
-
-        // Show error details if there are any
-        const errorList = document.getElementById('errorList');
-        const errorDetails = document.getElementById('errorDetails');
-
-        if (errors.length > 0) {
-          errorDetails.innerHTML = errors.map(err => `<div class="error-item">${err}</div>`).join('');
-          errorList.style.display = 'block';
-        } else {
-          errorList.style.display = 'none';
-        }
-
-        // Show the summary section
-        document.getElementById('importSummary').style.display = 'block';
-
-        // Update validation message
-        if (errorCount > 0) {
-          showValidationMessage(`Import completed with ${errorCount} errors. ${importedCount} rows imported successfully.`, true);
-        } else {
-          showValidationMessage(`Successfully imported ${importedCount} rows`, false);
-        }
-
-        updateUnsavedChanges(true);
-        loadTargets();
-
-      } catch (error) {
-        console.error('Error updating UI:', error);
-        showToast('Error updating the interface. Please try again.', 'error');
-      }
-    }
 
     // Download CSV template
     async function downloadTemplate(e) {
