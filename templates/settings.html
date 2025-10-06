@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Settings</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            color: #343a40;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #343a40;
+            font-weight: 500;
+        }
+        .back-link {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .settings-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        .setting-card {
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        .setting-card h2 {
+            margin-top: 0;
+            font-weight: 500;
+            font-size: 20px;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            font-weight: 500;
+            font-size: 14px;
+            margin-bottom: 8px;
+            display: block;
+        }
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .checkbox-group input {
+            height: 20px;
+            width: 20px;
+        }
+        .save-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        /* Toast Notifications */
+        #toastContainer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .toast {
+            background-color: #333;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            min-width: 250px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: slideIn 0.5s ease-out;
+        }
+        .toast.error { background-color: #dc3545; }
+        .toast.success { background-color: #28a745; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+    </style>
+</head>
+<body>
+    <div id="toastContainer"></div>
+    <div class="container">
+        <div class="header">
+            <h1>Settings</h1>
+            <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
+        </div>
+
+        <form id="settingsForm">
+             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="settings-container">
+                <div class="setting-card">
+                    <h2>YAML Endpoint</h2>
+                    <div class="form-group">
+                        <label for="yamlEndpointPath">Endpoint Path</label>
+                        <input type="text" id="yamlEndpointPath" name="yaml_endpoint_path" required>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="yamlEndpointEnabled" name="yaml_endpoint_enabled">
+                        <label for="yamlEndpointEnabled">Enable YAML Endpoint</label>
+                    </div>
+                </div>
+
+                <div class="setting-card">
+                    <h2>Idle Lockout</h2>
+                    <div class="form-group">
+                        <label for="idleTimeout">Idle Timeout (minutes)</label>
+                        <input type="number" id="idleTimeout" name="idle_timeout_minutes" min="1" required>
+                    </div>
+                </div>
+            </div>
+            <button type="submit" class="save-button">Save Settings</button>
+        </form>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            function showToast(message, type = 'info') {
+                const toastContainer = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.textContent = message;
+                toastContainer.appendChild(toast);
+                setTimeout(() => {
+                    toast.style.animation = 'slideOut 0.5s ease-out forwards';
+                    setTimeout(() => toast.remove(), 500);
+                }, 5000);
+            }
+
+            const form = document.getElementById('settingsForm');
+            const csrfToken = form.querySelector('input[name="csrf_token"]').value;
+
+            async function loadSettings() {
+                try {
+                    const response = await fetch('/api/settings');
+                    if (!response.ok) throw new Error('Failed to load settings');
+                    const settings = await response.json();
+                    form.yaml_endpoint_path.value = settings.yaml_endpoint_path;
+                    form.yaml_endpoint_enabled.checked = settings.yaml_endpoint_enabled;
+                    form.idle_timeout_minutes.value = settings.idle_timeout_minutes;
+                } catch (error) {
+                    showToast(error.message, 'error');
+                }
+            }
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const settingsData = {
+                    yaml_endpoint_path: form.yaml_endpoint_path.value,
+                    yaml_endpoint_enabled: form.yaml_endpoint_enabled.checked,
+                    idle_timeout_minutes: parseInt(form.idle_timeout_minutes.value, 10)
+                };
+
+                try {
+                    const response = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify(settingsData)
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error);
+                    showToast(data.message, 'success');
+                } catch (error) {
+                    showToast(error.message, 'error');
+                }
+            });
+
+            loadSettings();
+        });
+    </script>
+</body>
+</html>

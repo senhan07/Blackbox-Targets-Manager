@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime
+import re
 
 class Database:
     def __init__(self, db_file="blackbox.db"):
@@ -70,6 +71,18 @@ class Database:
                     cursor.execute(f'ALTER TABLE users ADD COLUMN {column} {definition}')
                 except sqlite3.OperationalError:
                     pass # Column already exists
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS settings (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    yaml_endpoint_enabled INTEGER DEFAULT 1,
+                    yaml_endpoint_path TEXT DEFAULT '/raw-yaml',
+                    idle_timeout_minutes INTEGER DEFAULT 15
+                )
+            ''')
+
+            # Ensure a default settings row exists
+            cursor.execute('INSERT OR IGNORE INTO settings (id) VALUES (1)')
 
             conn.commit()
 
@@ -293,6 +306,70 @@ class Database:
         """Discard all temporary changes"""
         self.load_targets_to_temp()
         return True
+
+    def get_filtered_targets(self, filters):
+        """Get targets based on a list of filters with OR logic"""
+        targets = self.get_all_targets()
+        if not filters:
+            return targets
+
+        filtered_targets = []
+        for target in targets:
+            for f in filters:
+                field = f['field']
+                operator = f['operator']
+                value = f['value']
+
+                if field not in target:
+                    continue
+
+                target_value = str(target[field])
+
+                match = False
+                if operator == '==' and target_value == value:
+                    match = True
+                elif operator == '!=' and target_value != value:
+                    match = True
+                elif operator == '~=':
+                    try:
+                        if re.search(value, target_value, re.IGNORECASE):
+                            match = True
+                    except re.error:
+                        # Ignore invalid regex patterns
+                        pass
+
+                if match:
+                    filtered_targets.append(target)
+                    break # Move to the next target once one filter matches (OR logic)
+
+        return filtered_targets
+
+    def get_settings(self):
+        """Get the application settings"""
+        with sqlite3.connect(self.db_file) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM settings WHERE id = 1')
+            settings = cursor.fetchone()
+            return dict(settings) if settings else None
+
+    def update_settings(self, settings_data):
+        """Update the application settings"""
+        with sqlite3.connect(self.db_file) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE settings
+                SET yaml_endpoint_enabled = ?,
+                    yaml_endpoint_path = ?,
+                    idle_timeout_minutes = ?
+                WHERE id = 1
+            ''', (
+                settings_data['yaml_endpoint_enabled'],
+                settings_data['yaml_endpoint_path'],
+                settings_data['idle_timeout_minutes']
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
 
     def generate_yaml_content(self):
         targets = self.get_all_targets()
