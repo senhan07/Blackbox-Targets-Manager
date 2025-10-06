@@ -23,6 +23,10 @@
       margin-bottom: 20px;
     }
 
+    #idleWarningModal .modal-header {
+        justify-content: center;
+    }
+
     .header-title {
       color: #007bff;
       margin: 0;
@@ -2224,7 +2228,7 @@
         }
 
         function logoutUser() {
-            window.location.href = '/logout';
+            window.location.href = '/logout?from=idle';
         }
 
         function resetIdleTimer() {
@@ -2232,8 +2236,11 @@
             clearTimeout(warningTimer);
             clearInterval(countdownTimer);
             idleWarningModal.style.display = 'none';
+
             const timeoutMs = idleTimeoutMinutes * 60 * 1000;
-            warningTimer = setTimeout(startIdleWarning, timeoutMs - 60000);
+            if (timeoutMs > 60000) { // Only set a warning if the timeout is greater than the warning period
+                warningTimer = setTimeout(startIdleWarning, timeoutMs - 60000);
+            }
             idleTimer = setTimeout(logoutUser, timeoutMs);
         }
 

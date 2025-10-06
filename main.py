@@ -90,6 +90,8 @@ def login():
 
 @app.route('/logout')
 def logout():
+    if request.args.get('from') == 'idle':
+        flash('You have been logged out due to inactivity.', 'info')
     session.clear()
     return redirect(url_for('login'))
 
