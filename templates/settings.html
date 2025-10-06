@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Settings</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #007bff;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .settings-form .form-group {
+            margin-bottom: 15px;
+        }
+        .settings-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .settings-form input[type="text"],
+        .settings-form input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .settings-form .checkbox-group {
+            display: flex;
+            align-items: center;
+        }
+        .settings-form .checkbox-group input {
+            margin-right: 10px;
+        }
+        .settings-form button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .settings-form button:hover {
+            background-color: #0056b3;
+        }
+        /* Toast Container */
+        #toastContainer {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 1000;
+        }
+        /* Toast Notification */
+        .toast {
+          background-color: #333;
+          color: white;
+          padding: 15px 20px;
+          border-radius: 8px;
+          margin-bottom: 10px;
+          min-width: 250px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          animation: slideIn 0.5s ease-out;
+        }
+        .toast.error {
+            background-color: #dc3545;
+        }
+        .toast.success {
+            background-color: #28a745;
+        }
+        .toast-close-button {
+            background: none;
+            border: none;
+            color: inherit;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0 5px;
+            margin-left: 15px;
+            line-height: 1;
+            opacity: 0.7;
+        }
+        .toast-close-button:hover {
+            opacity: 1;
+        }
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        @keyframes slideOut {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
+    </style>
+</head>
+<body>
+    <div id="toastContainer"></div>
+    <div class="container">
+        <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
+        <h1>Settings</h1>
+
+        <form id="settingsForm" class="settings-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <h2>YAML Endpoint</h2>
+            <div class="form-group">
+                <label for="yamlEndpointPath">Endpoint Path</label>
+                <input type="text" id="yamlEndpointPath" name="yaml_endpoint_path" required>
+            </div>
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="yamlEndpointEnabled" name="yaml_endpoint_enabled">
+                <label for="yamlEndpointEnabled">Enable YAML Endpoint</label>
+            </div>
+
+            <h2>Idle Lockout</h2>
+            <div class="form-group">
+                <label for="idleTimeout">Idle Timeout (minutes)</label>
+                <input type="number" id="idleTimeout" name="idle_timeout_minutes" min="1" required>
+            </div>
+
+            <button type="submit">Save Settings</button>
+        </form>
+    </div>
+    <script>
+        // Toast notification system
+        function showToast(message, type = 'info') {
+          const toastContainer = document.getElementById('toastContainer');
+          const toast = document.createElement('div');
+          toast.className = `toast ${type}`;
+          toast.innerHTML = `${message} <button class="toast-close-button">&times;</button>`;
+
+          const closeButton = toast.querySelector('.toast-close-button');
+          let timeoutId = null;
+
+          function closeToast() {
+              toast.style.animation = 'slideOut 0.5s ease-out forwards';
+              setTimeout(() => {
+                  if (toast.parentNode) {
+                      toast.parentNode.removeChild(toast);
+                  }
+                  if(timeoutId) clearTimeout(timeoutId);
+              }, 500);
+          }
+
+          closeButton.addEventListener('click', closeToast);
+          timeoutId = setTimeout(closeToast, 5000);
+          toastContainer.appendChild(toast);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const form = document.getElementById('settingsForm');
+            const csrfToken = form.querySelector('input[name="csrf_token"]').value;
+
+            // Fetch initial settings
+            try {
+                const response = await fetch('/api/settings');
+                if (response.ok) {
+                    const settings = await response.json();
+                    form.yaml_endpoint_path.value = settings.yaml_endpoint_path;
+                    form.yaml_endpoint_enabled.checked = settings.yaml_endpoint_enabled;
+                    form.idle_timeout_minutes.value = settings.idle_timeout_minutes;
+                } else {
+                    showToast('Failed to load settings.', 'error');
+                }
+            } catch (error) {
+                showToast('An error occurred while loading settings.', 'error');
+            }
+
+            // Handle form submission
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const settingsData = {
+                    yaml_endpoint_path: form.yaml_endpoint_path.value,
+                    yaml_endpoint_enabled: form.yaml_endpoint_enabled.checked,
+                    idle_timeout_minutes: parseInt(form.idle_timeout_minutes.value, 10)
+                };
+
+                try {
+                    const response = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify(settingsData)
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        showToast(data.message, 'success');
+                    } else {
+                        showToast(data.error, 'error');
+                    }
+                } catch (error) {
+                    showToast('An error occurred while saving settings.', 'error');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

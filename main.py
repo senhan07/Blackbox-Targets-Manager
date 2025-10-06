@@ -6,6 +6,7 @@ from database import Database
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
 from functools import wraps
+import re
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -46,6 +47,23 @@ def generate_yaml_file():
     with open(app.config['BLACKBOX_FILE'], 'w') as file:
         file.write(yaml_content)
 
+@app.before_request
+def dynamic_yaml_endpoint():
+    settings = db.get_settings()
+    if settings and settings['yaml_endpoint_enabled']:
+        if request.path == settings['yaml_endpoint_path']:
+            if 'user_id' not in session:
+                return redirect(url_for('login'))
+            try:
+                with open(app.config['BLACKBOX_FILE'], 'r') as f:
+                    content = f.read()
+                return Response(content, mimetype='text/plain')
+            except FileNotFoundError:
+                return "YAML file not found. Please save changes on the main page to generate it.", 404
+    elif settings and not settings['yaml_endpoint_enabled'] and request.path == settings['yaml_endpoint_path']:
+        return "Not Found", 404
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -78,7 +96,9 @@ def logout():
 @app.route('/')
 @login_required
 def index():
-    return render_template('index.html', username=session.get('username'), user_role=session.get('role'))
+    settings = db.get_settings()
+    idle_timeout = settings.get('idle_timeout_minutes', 15) if settings else 15
+    return render_template('index.html', username=session.get('username'), user_role=session.get('role'), idle_timeout=idle_timeout)
 
 
 @app.route('/targets', methods=['GET'])
@@ -202,12 +222,35 @@ def bulk_action_route():
 
     return jsonify({'error': 'Failed to perform bulk action'}), 500
 
+@app.route('/api/export/preview', methods=['POST'])
+@login_required
+def export_preview():
+    data = request.get_json()
+    filters = data.get('filters', [])
+
+    # Basic validation for filters
+    if not isinstance(filters, list):
+        return jsonify({'error': 'Filters must be a list'}), 400
+
+    for f in filters:
+        if not all(k in f for k in ['field', 'operator', 'value']):
+            return jsonify({'error': 'Invalid filter format'}), 400
+
+    filtered_targets = db.get_filtered_targets(filters)
+    return jsonify(filtered_targets)
+
 @app.route('/users', methods=['GET'])
 @login_required
 @admin_required
 def users_page():
     users = db.get_all_users()
     return render_template('users.html', users=users, current_user_id=session.get('user_id'))
+
+@app.route('/settings', methods=['GET'])
+@login_required
+@admin_required
+def settings_page():
+    return render_template('settings.html')
 
 @app.route('/users/create', methods=['POST'])
 @login_required
@@ -330,16 +373,46 @@ def toggle_user_status_route(user_id):
         return jsonify({'error': 'Error updating user status.'}), 500
 
 
-@app.route('/raw-yaml')
+@app.route('/api/settings', methods=['GET'])
 @login_required
-def raw_yaml():
-    try:
-        with open(app.config['BLACKBOX_FILE'], 'r') as f:
-            content = f.read()
-        return Response(content, mimetype='text/plain')
-    except FileNotFoundError:
-        return "YAML file not found. Please save changes on the main page to generate it.", 404
+@admin_required
+def get_settings():
+    settings = db.get_settings()
+    return jsonify(settings)
 
+@app.route('/api/settings', methods=['POST'])
+@login_required
+@admin_required
+def update_settings():
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    # Validate yaml_endpoint_path
+    path = data.get('yaml_endpoint_path')
+    if not path or not re.match(r'^/[a-zA-Z0-9-]+$', path):
+        return jsonify({'error': 'Invalid YAML endpoint path. It must start with / and contain only letters, numbers, and hyphens.'}), 400
+
+    # Validate idle_timeout_minutes
+    timeout = data.get('idle_timeout_minutes')
+    if not isinstance(timeout, int) or timeout < 1:
+        return jsonify({'error': 'Idle timeout must be a positive integer.'}), 400
+
+    # Validate yaml_endpoint_enabled
+    enabled = data.get('yaml_endpoint_enabled')
+    if not isinstance(enabled, bool):
+        return jsonify({'error': 'YAML endpoint enabled must be a boolean.'}), 400
+
+    settings_data = {
+        'yaml_endpoint_enabled': enabled,
+        'yaml_endpoint_path': path,
+        'idle_timeout_minutes': timeout
+    }
+
+    if db.update_settings(settings_data):
+        return jsonify({'message': 'Settings updated successfully!'})
+    else:
+        return jsonify({'error': 'Failed to update settings'}), 500
 
 if __name__ == '__main__':
     with app.app_context():
