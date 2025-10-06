@@ -1076,9 +1076,9 @@
               actionsHtml = `
                 <td>
                   <div class="action-buttons">
-                    <button onclick="toggleTarget(${target.id})">On/Off</button>
-                    <button onclick="openEditModal(${target.id})">Edit</button>
-                    <button class="button-danger" onclick="removeTarget(${target.id})">Remove</button>
+                    <button onclick="toggleTarget(${target.id})"><i class="fa-solid fa-toggle-on"></i></button>
+                    <button onclick="openEditModal(${target.id})"><i class="fas fa-edit"></i></button>
+                    <button class="button-danger" onclick="removeTarget(${target.id})"><i class="fas fa-trash"></i></button>
                   </div>
                 </td>
               `;
@@ -1096,7 +1096,7 @@
             <td>${target.connection_type || ''}</td>
             <td>${target.location}</td>
             <td>${target.short_name || ''}</td>
-            <td class="${target.enabled ? 'status-enabled' : 'status-disabled'}">${target.enabled ? 'Enabled' : 'Disabled'}</td>
+            <td class="${target.enabled ? 'status-enabled' : 'status-disabled'}">${target.enabled ? '<i class="fa-solid fa-circle-check"></i> Enabled' : '<i class="fa-solid fa-circle-xmark"></i> Disabled'}</td>
             ${actionsHtml}
           `;
           row.addEventListener('click', (e) => {

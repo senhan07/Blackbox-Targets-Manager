@@ -84,9 +84,6 @@
         .user-card-status.disabled {
             color: #dc3545;
         }
-        .user-card-status i {
-            font-size: 1.2em;
-        }
         .user-card-body .form-group {
             margin-bottom: 15px;
         }
@@ -108,11 +105,11 @@
             padding-top: 15px;
             border-top: 1px solid #e9ecef;
             display: flex;
-            justify-content: flex-end;
             flex-wrap: wrap;
             gap: 10px;
         }
         .card-button {
+            flex-grow: 1;
             padding: 8px 12px;
             border-radius: 8px;
             border: 1px solid transparent;
@@ -121,7 +118,6 @@
             text-align: center;
             text-decoration: none;
             color: #fff;
-            line-height: 1.5;
         }
         .card-button-primary {
             background-color: #007bff;
@@ -212,8 +208,8 @@
                     <div class="user-card-avatar">{{ user.username[0]|upper }}</div>
                     <div class="user-card-info">
                         <h3 class="user-card-username">{{ user.username }}</h3>
-                        <p class="user-card-status {{ 'enabled' if user.is_enabled else 'disabled' }}" title="{{ 'Enabled' if user.is_enabled else 'Disabled' }}">
-                            <i class="fas fa-{{ 'check-circle' if user.is_enabled else 'times-circle' }}"></i>
+                        <p class="user-card-status {{ 'enabled' if user.is_enabled else 'disabled' }}">
+                            {{ 'Active' if user.is_enabled else 'Disabled' }}
                         </p>
                     </div>
                 </div>
@@ -230,18 +226,18 @@
                     </div>
                 </div>
                 <div class="user-card-footer">
-                    <a href="{{ url_for('change_password_route', user_id=user.id) }}" class="card-button card-button-primary" title="Change Password"><i class="fas fa-key"></i></a>
+                    <a href="{{ url_for('change_password_route', user_id=user.id) }}" class="card-button card-button-primary">Change Password</a>
                     {% if user.id != current_user_id %}
                         <form class="toggle-status-form" method="post" action="{{ url_for('toggle_user_status_route', user_id=user.id) }}" style="display:contents;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="card-button card-button-secondary" title="{{ 'Disable' if user.is_enabled else 'Enable' }}">
-                                <i class="fas fa-toggle-{{ 'on' if user.is_enabled else 'off' }}"></i>
+                            <button type="submit" class="card-button card-button-secondary">
+                                {{ 'Disable' if user.is_enabled else 'Enable' }}
                             </button>
                         </form>
                         {% if users|length > 1 %}
                         <form class="delete-user-form" method="post" action="{{ url_for('delete_user_route', user_id=user.id) }}" style="display:contents;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="card-button card-button-danger" title="Delete"><i class="fas fa-trash"></i></button>
+                            <button type="submit" class="card-button card-button-danger">Delete</button>
                         </form>
                         {% endif %}
                     {% endif %}
