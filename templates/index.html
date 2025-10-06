@@ -673,6 +673,12 @@
       animation: slideIn 0.5s ease-out;
     }
 
+    .toast.error {
+        background-color: #dc3545;
+    }
+    .toast.success {
+        background-color: #28a745;
+    }
     .toast.unsaved {
       background-color: #f0ad4e;
       color: black;
@@ -2000,16 +2006,23 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+        // --- Main Page Logic ---
+        const userRole = '{{ user_role }}';
+        let targets = [];
+        let currentEditingId = null;
+        let selectedTargetIds = [];
+        let lastSelectedRowId = null;
+        let hasUnsavedChanges = false;
+        let unsavedToast = null;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        // --- Dropdown Elements & Logic ---
         const userDropdown = document.querySelector('.user-dropdown');
         const userButton = userDropdown.querySelector('.user-button');
         const dropdownContent = userDropdown.querySelector('.dropdown-content');
-
         const settingsLink = document.getElementById('settingsLink');
         const userManagementLink = document.getElementById('userManagementLink');
         const exportLink = document.getElementById('exportLink');
-        const userRole = '{{ user_role }}';
-
-        const exportModal = document.getElementById('exportModal');
 
         userButton.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -2025,127 +2038,30 @@
         });
 
         if (userRole !== 'admin') {
-            settingsLink.addEventListener('click', (e) => {
+            const handleAccessDenied = (e) => {
                 e.preventDefault();
                 showToast('Access Denied: You do not have permission to view this page.', 'error');
-            });
-            userManagementLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                showToast('Access Denied: You do not have permission to view this page.', 'error');
-            });
+            };
+            settingsLink.addEventListener('click', handleAccessDenied);
+            userManagementLink.addEventListener('click', handleAccessDenied);
         }
 
-        exportLink.onclick = (e) => {
-            e.preventDefault();
-            exportModal.style.display = 'block';
-            if (filterRowsContainer.children.length === 0) {
-                createFilterRow();
-            }
-            updatePreview();
-        };
-
-        // Modal and button elements
+        // --- Export Modal Elements & Logic ---
+        const exportModal = document.getElementById('exportModal');
         const closeExportModalBtn = document.getElementById('closeExportModal');
-
-        // Filter elements
         const addFilterBtn = document.getElementById('addFilterBtn');
         const filterRowsContainer = document.getElementById('filter-rows');
-
-        // Preview elements
         const previewTable = document.getElementById('exportPreviewTable');
         const previewTableHead = previewTable.querySelector('thead');
         const previewTableBody = previewTable.querySelector('tbody');
         const previewRowCountSelect = document.getElementById('previewRowCount');
-
-        // Export button
         const exportCsvBtn = document.getElementById('exportCsvBtn');
-
-        // CSRF token for POST requests
-        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-
-        // Available columns for filtering
         const tableHeaders = [
             'address', 'instance', 'module', 'zone', 'service',
             'device_type', 'connection_type', 'location', 'short_name', 'enabled'
         ];
-
-        // Store for the full filtered dataset from the backend
         let filteredData = [];
 
-        // --- Functions ---
-
-        // Fetches data from the backend based on current filters
-        async function updatePreview() {
-            const filters = [];
-            filterRowsContainer.querySelectorAll('.filter-row').forEach(row => {
-                const field = row.querySelector('.filter-field').value;
-                const operator = row.querySelector('.filter-operator').value;
-                const value = row.querySelector('.filter-value').value;
-                // Only add filter if value is not empty
-                if (value) {
-                    filters.push({ field, operator, value });
-                }
-            });
-
-            try {
-                const response = await fetch('/api/export/preview', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    },
-                    body: JSON.stringify({ filters })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    showToast(`Failed to fetch preview: ${errorData.error}`, 'error');
-                    return;
-                }
-
-                filteredData = await response.json();
-                renderPreviewTable();
-            } catch (error) {
-                console.error('Error fetching preview:', error);
-                showToast('An error occurred while fetching preview data.', 'error');
-            }
-        }
-
-        // Renders the data into the preview table
-        function renderPreviewTable() {
-            previewTableHead.innerHTML = '';
-            previewTableBody.innerHTML = '';
-
-            if (filteredData.length === 0) {
-                previewTableBody.innerHTML = `<tr><td colspan="${tableHeaders.length}" style="text-align: center;">No matching targets found.</td></tr>`;
-                return;
-            }
-
-            // Create and append table headers
-            const headerRow = document.createElement('tr');
-            tableHeaders.forEach(header => {
-                const th = document.createElement('th');
-                th.textContent = header;
-                headerRow.appendChild(th);
-            });
-            previewTableHead.appendChild(headerRow);
-
-            // Populate table rows based on row count selection
-            const rowCount = parseInt(previewRowCountSelect.value, 10);
-            const dataToShow = filteredData.slice(0, rowCount);
-
-            dataToShow.forEach(target => {
-                const row = document.createElement('tr');
-                tableHeaders.forEach(header => {
-                    const td = document.createElement('td');
-                    td.textContent = target[header] !== undefined ? target[header] : '';
-                    row.appendChild(td);
-                });
-                previewTableBody.appendChild(row);
-            });
-        }
-
-        // Creates a new filter row in the UI
         function createFilterRow() {
             const row = document.createElement('div');
             row.className = 'filter-row';
@@ -2191,75 +2107,107 @@
             filterRowsContainer.appendChild(row);
         }
 
-        // Converts the filtered data to a CSV string and triggers download
+        async function updatePreview() {
+            const filters = [];
+            filterRowsContainer.querySelectorAll('.filter-row').forEach(row => {
+                const field = row.querySelector('.filter-field').value;
+                const operator = row.querySelector('.filter-operator').value;
+                const value = row.querySelector('.filter-value').value;
+                if (value) {
+                    filters.push({ field, operator, value });
+                }
+            });
+
+            try {
+                const response = await fetch('/api/export/preview', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ filters })
+                });
+                if (!response.ok) throw new Error('Failed to fetch preview');
+                filteredData = await response.json();
+                renderPreviewTable();
+            } catch (error) {
+                console.error('Error fetching preview:', error);
+                showToast('An error occurred while fetching preview data.', 'error');
+            }
+        }
+
+        function renderPreviewTable() {
+            previewTableHead.innerHTML = '';
+            previewTableBody.innerHTML = '';
+
+            if (filteredData.length === 0) {
+                previewTableBody.innerHTML = `<tr><td colspan="${tableHeaders.length}" style="text-align: center;">No matching targets found.</td></tr>`;
+                return;
+            }
+
+            const headerRow = document.createElement('tr');
+            tableHeaders.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                headerRow.appendChild(th);
+            });
+            previewTableHead.appendChild(headerRow);
+
+            const rowCount = parseInt(previewRowCountSelect.value, 10);
+            const dataToShow = filteredData.slice(0, rowCount);
+
+            dataToShow.forEach(target => {
+                const row = document.createElement('tr');
+                tableHeaders.forEach(header => {
+                    const td = document.createElement('td');
+                    td.textContent = target[header] !== undefined ? target[header] : '';
+                    row.appendChild(td);
+                });
+                previewTableBody.appendChild(row);
+            });
+        }
+
         function exportToCsv() {
             if (filteredData.length === 0) {
                 showToast('No data to export.', 'error');
                 return;
             }
-
             const delimiter = ';';
             const headers = tableHeaders.join(delimiter);
-            const rows = filteredData.map(target => {
-                return tableHeaders.map(header => {
-                    const value = target[header] !== undefined ? target[header] : '';
-                    const stringValue = String(value);
-                    if (stringValue.includes(delimiter) || stringValue.includes('"') || stringValue.includes('\n')) {
-                        return `"${stringValue.replace(/"/g, '""')}"`;
-                    }
-                    return stringValue;
-                }).join(delimiter);
-            });
+            const rows = filteredData.map(target => tableHeaders.map(header => {
+                const value = target[header] !== undefined ? target[header] : '';
+                const stringValue = String(value);
+                return (stringValue.includes(delimiter) || stringValue.includes('"') || stringValue.includes('\n'))
+                    ? `"${stringValue.replace(/"/g, '""')}"`
+                    : stringValue;
+            }).join(delimiter));
 
             const csvContent = [headers, ...rows].join('\n');
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', 'blackbox-targets.csv');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'blackbox-targets.csv';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         }
 
-        // --- Event Listeners ---
-
-        // Open modal and fetch initial preview
-        exportBtn.onclick = () => {
+        exportLink.addEventListener('click', (e) => {
+            e.preventDefault();
             exportModal.style.display = 'block';
             if (filterRowsContainer.children.length === 0) {
                 createFilterRow();
             }
             updatePreview();
-        };
-
-        // Close modal
-        closeExportModalBtn.onclick = () => {
-            exportModal.style.display = 'none';
-        };
-
-        // Add a new filter
-        addFilterBtn.onclick = createFilterRow;
-
-        // Update preview when row count changes
-        previewRowCountSelect.onchange = renderPreviewTable;
-
-        // Trigger CSV download
-        exportCsvBtn.onclick = exportToCsv;
-
-        // Close modal when clicking outside of it
-        window.onclick = (event) => {
-            if (event.target == exportModal) {
-                exportModal.style.display = 'none';
-            }
-        };
+        });
+        closeExportModalBtn.addEventListener('click', () => { exportModal.style.display = 'none'; });
+        addFilterBtn.addEventListener('click', createFilterRow);
+        previewRowCountSelect.addEventListener('change', renderPreviewTable);
+        exportCsvBtn.addEventListener('click', exportToCsv);
 
         // --- Idle Lockout Logic ---
-        let idleTimer;
-        let warningTimer;
-        let countdownTimer;
+        let idleTimer, warningTimer, countdownTimer;
         const idleTimeoutMinutes = {{ idle_timeout }};
-
         const idleWarningModal = document.getElementById('idleWarningModal');
         const stayLoggedInBtn = document.getElementById('stayLoggedInBtn');
         const countdownSpan = document.getElementById('idleWarningCountdown');
@@ -2268,13 +2216,10 @@
             let countdown = 60;
             countdownSpan.textContent = countdown;
             idleWarningModal.style.display = 'block';
-
             countdownTimer = setInterval(() => {
                 countdown--;
                 countdownSpan.textContent = countdown;
-                if (countdown <= 0) {
-                    logoutUser();
-                }
+                if (countdown <= 0) logoutUser();
             }, 1000);
         }
 
@@ -2287,26 +2232,21 @@
             clearTimeout(warningTimer);
             clearInterval(countdownTimer);
             idleWarningModal.style.display = 'none';
-
-            const timeoutMilliseconds = idleTimeoutMinutes * 60 * 1000;
-
-            // Set a timer to show the warning 60 seconds before the final logout
-            warningTimer = setTimeout(startIdleWarning, timeoutMilliseconds - 60000);
-
-            // Set the final logout timer
-            idleTimer = setTimeout(logoutUser, timeoutMilliseconds);
+            const timeoutMs = idleTimeoutMinutes * 60 * 1000;
+            warningTimer = setTimeout(startIdleWarning, timeoutMs - 60000);
+            idleTimer = setTimeout(logoutUser, timeoutMs);
         }
 
-        stayLoggedInBtn.addEventListener('click', () => {
-            resetIdleTimer();
-        });
-
-        // Events that reset the timer
-        window.addEventListener('click', resetIdleTimer);
-        window.addEventListener('keypress', resetIdleTimer);
-
-        // Start the timer on page load
+        stayLoggedInBtn.addEventListener('click', resetIdleTimer);
+        ['click', 'keypress'].forEach(evt => window.addEventListener(evt, resetIdleTimer));
         resetIdleTimer();
+
+        // Make sure modals also close on outside click
+        window.addEventListener('click', (event) => {
+            if (event.target == exportModal) {
+                exportModal.style.display = 'none';
+            }
+        });
     });
   </script>
 </body>
