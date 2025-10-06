@@ -3,7 +3,7 @@ from playwright.sync_api import Page, expect
 import re
 import os
 import tempfile
-from main import app as flask_app
+import main
 from database import Database
 from werkzeug.security import generate_password_hash
 
@@ -12,22 +12,22 @@ def app():
     """Session-wide test Flask application."""
     db_fd, db_path = tempfile.mkstemp()
 
-    flask_app.config.update({
+    main.app.config.update({
         "TESTING": True,
-        "WTF_CSRF_ENABLED": True,  # Enable CSRF for realistic testing
+        "WTF_CSRF_ENABLED": True,
         "DATABASE_FILE": db_path,
-        "SERVER_NAME": "127.0.0.1" # Let pytest-flask pick the port
     })
 
-    db = Database(flask_app.config['DATABASE_FILE'])
-    flask_app.db = db
+    # Create a new database instance for testing and monkeypatch the main.db
+    db = Database(main.app.config['DATABASE_FILE'])
+    main.db = db
 
-    with flask_app.app_context():
+    with main.app.app_context():
         db.init_db()
         db.create_user('testuser', generate_password_hash('password'), 'viewer')
         db.create_user('admin', generate_password_hash('admin'), 'admin', is_default_admin=True)
 
-    yield flask_app
+    yield main.app
 
     os.close(db_fd)
     os.unlink(db_path)
@@ -40,6 +40,7 @@ def test_e2e_flow(live_server, page: Page):
 
     # --- Admin Verification ---
     page.goto(f"{base_url}/login")
+    page.screenshot(path="jules-scratch/verification/00_login_page.png")
     page.get_by_placeholder("Username").fill("admin")
     page.get_by_placeholder("Password").fill("admin")
     page.get_by_role("button", name="Login").click()
@@ -47,8 +48,8 @@ def test_e2e_flow(live_server, page: Page):
     page.wait_for_url(re.compile(f".*/force-change-password"))
 
     expect(page.get_by_role("heading", name="Change Your Default Password")).to_be_visible()
-    page.get_by_placeholder("New Password").fill("new_password")
-    page.get_by_placeholder("Confirm Password").fill("new_password")
+    page.get_by_placeholder("New Password", exact=True).fill("new_password")
+    page.get_by_placeholder("Confirm New Password", exact=True).fill("new_password")
     page.get_by_role("button", name="Update Password").click()
 
     expect(page.get_by_text("Password updated successfully!")).to_be_visible()
