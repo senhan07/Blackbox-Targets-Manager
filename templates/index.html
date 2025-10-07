@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>Blackbox Targets Manager</title>
+  <title>Blackbox Manager</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
@@ -764,20 +764,20 @@
   <div id="toastContainer"></div>
 
   <div class="header">
-    <h1 class="header-title">Blackbox Targets Manager</h1>
+    <h1 class="header-title">Blackbox Manager</h1>
     <div class="header-actions">
-      <input type="text" id="searchInput" placeholder="Type anything to search targets...">
+      <input type="text" id="searchInput" placeholder="Search...">
       {% if user_role == 'admin' %}
       <button onclick="openAddTargetModal()" class="header-button primary">
         <i class="fas fa-plus"></i> Add Target
       </button>
-      <button onclick="saveChanges()" class="header-button generate">Save & Generate YAML</button>
+      <button onclick="saveChanges()" class="header-button generate">Apply Changes</button>
       {% endif %}
       <div class="user-dropdown">
         <button class="header-button user-button"><i class="fas fa-user"></i> {{ username }} <i class="fas fa-caret-down"></i></button>
         <div class="dropdown-content">
             <a href="/settings" id="settingsLink">Settings</a>
-            <a href="/users" id="userManagementLink">User Management</a>
+            <a href="/users" id="userManagementLink">Users</a>
             <a href="#" id="exportLink">Export</a>
         </div>
       </div>
@@ -1076,7 +1076,9 @@
               actionsHtml = `
                 <td>
                   <div class="action-buttons">
-                    <button onclick="toggleTarget(${target.id})"><i class="fa-solid fa-toggle-on"></i></button>
+                    <button onclick="toggleTarget(${target.id})">
+                      <i class="${target.enabled ? 'fa-solid fa-toggle-on text-green' : 'fa-solid fa-toggle-off text-gray'}"></i>
+                    </button>
                     <button onclick="openEditModal(${target.id})"><i class="fas fa-edit"></i></button>
                     <button class="button-danger" onclick="removeTarget(${target.id})"><i class="fas fa-trash"></i></button>
                   </div>
@@ -1908,7 +1910,7 @@
                         'connection_type', 'location', 'short_name'];
         const example = [
           '127.0.0.1:9115', '192.168.1.1', 'icmp', 'INT', 'BACKBONE', 'ROUTER',
-          'FO', 'DC1', 'abc123', 'RTR-01'
+          'FO', 'DC1', 'abc123'
         ];
 
         const csv = [
