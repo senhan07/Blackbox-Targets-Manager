@@ -790,14 +790,14 @@
           <input type="text" name="instance" placeholder="Target Address (Domain or IP)" required>
           <select name="module" required>
             <option value="" disabled selected>Select probe module</option>
-            <option value="dns" disabled>DNS</option>
+            <option value="dns">DNS</option>
             <option value="icmp">ICMP</option>
-            <option value="http_2xx" disabled>HTTP_2xx</option>
+            <option value="http_2xx">HTTP_2xx</option>
           </select>
           <select name="zone">
             <option value="" disabled selected>Select Zone</option>
-            <option value="INT">Internal (Inside Infra)</option>
-            <option value="EXT">External (Not Managed)</option>
+            <option value="INT">INT</option>
+            <option value="EXT">EXT</option>
           </select>
           <small id="service-note" style="display:none; color:rgb(255, 0, 0);">
             [REQUIRED] Add 2 octets at the end, e.g., CPE-10.24
