@@ -5,6 +5,7 @@
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Blackbox Manager</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -13,96 +14,8 @@
       padding: 0;
     }
 
-    .header {
-      background-color: #fff;
-      padding: 15px 20px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-
     #idleWarningModal .modal-header {
         justify-content: center;
-    }
-
-    .header-title {
-      color: #007bff;
-      margin: 0;
-      font-size: 24px;
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .header-button {
-      background-color: #007bff;
-      color: white;
-      padding: 8px 16px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 12px;
-    }
-
-    .header-button.generate {
-      background-color: #28a745;
-    }
-
-    .header-button.primary {
-      background-color: #007bff;
-    }
-
-    .header-button:hover {
-      opacity: 0.9;
-    }
-    .button-danger {
-        background-color: #dc3545 !important;
-    }
-    .button-danger:hover {
-        background-color: #c82333 !important;
-    }
-
-    /* User Dropdown */
-    .user-dropdown {
-        position: relative;
-        display: inline-block;
-    }
-
-    .user-dropdown .user-button {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-    }
-
-    .dropdown-content {
-        display: none;
-        position: absolute;
-        background-color: #f1f1f1;
-        min-width: 160px;
-        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-        z-index: 1;
-        right: 0;
-        border-radius: 5px;
-    }
-
-    .dropdown-content a {
-        color: black;
-        padding: 12px 16px;
-        text-decoration: none;
-        display: block;
-    }
-
-    .dropdown-content a:hover {
-        background-color: #ddd;
-    }
-
-    .dropdown-content.show {
-        display: block;
     }
 
     /* Add Target Options styles */
@@ -985,50 +898,6 @@
     // Track unsaved changes
     let hasUnsavedChanges = false;
     let unsavedToast = null;
-
-    // Toast notification system
-    function showToast(message, type = 'info', persistent = false) {
-      const toastContainer = document.getElementById('toastContainer');
-      const toast = document.createElement('div');
-      toast.className = `toast ${type}`;
-
-      let toastContent = `
-        <div class="toast-content">${message}</div>
-        <div class="toast-buttons">
-      `;
-
-      if (type === 'unsaved' && userRole === 'admin') {
-        toastContent += `
-          <button onclick="discardChanges()">Revert</button>
-          <button onclick="saveChanges()" style="background-color: #28a745; color: white;">Save</button>
-        `;
-      }
-
-      toastContent += `</div><button class="toast-close-button">&times;</button>`;
-      toast.innerHTML = toastContent;
-
-      const closeButton = toast.querySelector('.toast-close-button');
-      let timeoutId = null;
-
-      function closeToast() {
-          toast.style.animation = 'slideOut 0.5s ease-out forwards';
-          setTimeout(() => {
-              if (toast.parentNode) {
-                  toast.parentNode.removeChild(toast);
-              }
-              if(timeoutId) clearTimeout(timeoutId);
-          }, 500);
-      }
-
-      closeButton.addEventListener('click', closeToast);
-
-      if (!persistent) {
-        timeoutId = setTimeout(closeToast, 5000);
-      }
-
-      toastContainer.appendChild(toast);
-      return toast;
-    }
 
     function updateUnsavedChanges(hasChanges) {
       hasUnsavedChanges = hasChanges;
@@ -2257,6 +2126,8 @@
             }
         });
     });
+
   </script>
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>

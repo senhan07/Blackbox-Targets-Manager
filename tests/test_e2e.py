@@ -55,7 +55,7 @@ def test_e2e_flow(live_server, page: Page):
     expect(page.get_by_text("Password updated successfully!")).to_be_visible()
     page.wait_for_url(f"{base_url}/")
 
-    expect(page.get_by_role("heading", name="Blackbox Targets Manager")).to_be_visible()
+    expect(page.get_by_role("heading", name="Blackbox Manager")).to_be_visible()
 
     # 1. Verify User Dropdown (Admin)
     user_dropdown_button = page.locator(".user-button", has_text="admin")
@@ -72,7 +72,7 @@ def test_e2e_flow(live_server, page: Page):
     # 3. Verify User Management Page
     page.goto(f"{base_url}/users")
     expect(page.get_by_role("heading", name="User Management")).to_be_visible()
-    expect(page.locator(".user-card").first).to_be_visible()
+    expect(page.locator(".card").first).to_be_visible()
     page.screenshot(path="jules-scratch/verification/03_user_management_page.png")
 
     # 4. Verify Export Modal
@@ -93,7 +93,7 @@ def test_e2e_flow(live_server, page: Page):
     page.get_by_placeholder("Password").fill("password")
     page.get_by_role("button", name="Login").click()
     expect(page).to_have_url(f"{base_url}/")
-    expect(page.get_by_role("heading", name="Blackbox Targets Manager")).to_be_visible()
+    expect(page.get_by_role("heading", name="Blackbox Manager")).to_be_visible()
 
     # 6. Verify User Dropdown (Viewer) and Access Control
     viewer_dropdown_button = page.locator(".user-button", has_text="testuser")

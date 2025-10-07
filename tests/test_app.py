@@ -96,7 +96,7 @@ def test_force_password_change(client):
     # Follow redirect to ensure it goes to the main page
     response = client.get(json_data['redirect'], follow_redirects=True)
     assert response.status_code == 200
-    assert b'Blackbox Targets Manager' in response.data
+    assert b'Blackbox Manager' in response.data
 
 def test_create_user(client):
     """Test creating a new user."""
