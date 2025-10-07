@@ -4,194 +4,7 @@
     <meta charset="UTF-8">
     <title>User Management - Blackbox Manager</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: #f8f9fa;
-            margin: 0;
-            padding: 20px;
-            color: #343a40;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        h1 {
-            color: #343a40;
-            font-weight: 500;
-        }
-        .back-link {
-            color: #007bff;
-            text-decoration: none;
-            font-size: 16px;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        .user-cards-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .user-card {
-            background-color: #fff;
-            border: 1px solid #dee2e6;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            display: flex;
-            flex-direction: column;
-        }
-        .user-card-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .user-card-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background-color: #007bff;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            font-weight: 500;
-            margin-right: 15px;
-        }
-        .user-card-info {
-            flex-grow: 1;
-        }
-        .user-card-username {
-            font-weight: 600;
-            font-size: 18px;
-            margin: 0;
-        }
-        .user-card-status {
-            font-size: 14px;
-        }
-        .user-card-status.enabled {
-            color: #28a745;
-        }
-        .user-card-status.disabled {
-            color: #dc3545;
-        }
-        .user-card-body .form-group {
-            margin-bottom: 15px;
-        }
-        .user-card-body label {
-            font-weight: 500;
-            font-size: 14px;
-            margin-bottom: 5px;
-            display: block;
-        }
-        .user-card-body select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ced4da;
-            border-radius: 8px;
-            background-color: #f8f9fa;
-        }
-        .user-card-footer {
-            margin-top: auto;
-            padding-top: 15px;
-            border-top: 1px solid #e9ecef;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .card-button {
-            flex-grow: 1;
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid transparent;
-            cursor: pointer;
-            font-size: 14px;
-            text-align: center;
-            text-decoration: none;
-            color: #fff;
-        }
-        .card-button-primary {
-            background-color: #007bff;
-            border-color: #007bff;
-        }
-        .card-button-secondary {
-            background-color: #6c757d;
-            border-color: #6c757d;
-        }
-        .card-button-danger {
-            background-color: #dc3545;
-            border-color: #dc3545;
-        }
-
-        .add-user-container {
-            background-color: #fff;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        }
-        .add-user-container h2 {
-            margin-top: 0;
-            font-weight: 500;
-        }
-        .add-user-form {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        .add-user-form .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-        .add-user-form input, .add-user-form select {
-            padding: 10px;
-            border: 1px solid #ced4da;
-            border-radius: 8px;
-        }
-        .add-user-form .full-width {
-            grid-column: 1 / -1;
-        }
-        .add-user-form button {
-            grid-column: 1 / -1;
-            padding: 12px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        /* Toast Notifications */
-        #toastContainer {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-        .toast {
-            background-color: #333;
-            color: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            min-width: 250px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            animation: slideIn 0.5s ease-out;
-        }
-        .toast.error { background-color: #dc3545; }
-        .toast.success { background-color: #28a745; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div id="toastContainer"></div>
@@ -201,19 +14,19 @@
             <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
         </div>
 
-        <div class="user-cards-container">
+        <div class="card-container">
             {% for user in users %}
-            <div class="user-card">
-                <div class="user-card-header">
-                    <div class="user-card-avatar">{{ user.username[0]|upper }}</div>
-                    <div class="user-card-info">
-                        <h3 class="user-card-username">{{ user.username }}</h3>
-                        <p class="user-card-status {{ 'enabled' if user.is_enabled else 'disabled' }}">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-avatar">{{ user.username[0]|upper }}</div>
+                    <div class="card-info">
+                        <h3 class="card-username">{{ user.username }}</h3>
+                        <p class="card-status {{ 'enabled' if user.is_enabled else 'disabled' }}">
                             {{ 'Active' if user.is_enabled else 'Disabled' }}
                         </p>
                     </div>
                 </div>
-                <div class="user-card-body">
+                <div class="card-body">
                     <div class="form-group">
                         <label for="role-{{ user.id }}">Role</label>
                         <form class="change-role-form" method="post" action="{{ url_for('change_role_route', user_id=user.id) }}">
@@ -225,7 +38,7 @@
                         </form>
                     </div>
                 </div>
-                <div class="user-card-footer">
+                <div class="card-footer">
                     <a href="{{ url_for('change_password_route', user_id=user.id) }}" class="card-button card-button-primary">Change Password</a>
                     {% if user.id != current_user_id %}
                         <form class="toggle-status-form" method="post" action="{{ url_for('toggle_user_status_route', user_id=user.id) }}" style="display:contents;">
@@ -273,19 +86,8 @@
             </form>
         </div>
     </div>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <script>
-        function showToast(message, type = 'info') {
-            const toastContainer = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.textContent = message;
-            toastContainer.appendChild(toast);
-            setTimeout(() => {
-                toast.style.animation = 'slideOut 0.5s ease-out forwards';
-                setTimeout(() => toast.remove(), 500);
-            }, 5000);
-        }
-
         async function handleFormSubmit(form, confirmMessage = null) {
             if (confirmMessage && !confirm(confirmMessage)) {
                 return;

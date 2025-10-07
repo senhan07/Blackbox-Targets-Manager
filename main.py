@@ -241,6 +241,10 @@ def export_preview():
     filtered_targets = db.get_filtered_targets(filters)
     return jsonify(filtered_targets)
 
+@app.route('/health')
+def health_check():
+    return jsonify(status='ok')
+
 @app.route('/users', methods=['GET'])
 @login_required
 @admin_required
