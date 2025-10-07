@@ -108,8 +108,51 @@ body {
 #targetsTable thead th {
     position: sticky;
     top: 68px; /* Height of the main header */
-    background-color: #007bff;
     z-index: 1000;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fff;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    table-layout: fixed;
+}
+
+th, td {
+    padding: 5px 5px;
+    padding-left: 20px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    word-wrap: break-word;
+}
+
+th {
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+th:last-child {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: default;
+}
+
+th:hover {
+    background-color: #0056b3;
+}
+
+tr:hover {
+    background-color: #f1f1f1;
+}
+
+tr:last-child td {
+    border-bottom: none;
 }
 
 h1 {
@@ -293,7 +336,7 @@ h1 {
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 1000;
+    z-index: 1020;
 }
 
 .toast {
