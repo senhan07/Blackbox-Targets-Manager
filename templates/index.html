@@ -1410,6 +1410,7 @@
             return;
         }
 
+        showToast('Sending deletion request...', 'info');
         isDeleting = true;
         document.getElementById('ui-freeze-overlay').style.display = 'block';
         document.getElementById('delete-progress-container').style.display = 'block';
@@ -1460,7 +1461,8 @@
                         document.getElementById('permanent-action-warning').style.display = 'none';
                         updateConfirmButtonState();
                         // We stop here and let the user decide on the force option.
-                        // The loop will break and the finally block will clean up the UI freeze.
+                        isDeleting = false;
+                        document.getElementById('ui-freeze-overlay').style.display = 'none';
                         return;
                     }
                 }
