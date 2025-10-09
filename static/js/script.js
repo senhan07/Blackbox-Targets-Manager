@@ -7,7 +7,6 @@ function showToast(message, type = 'info', persistent = false) {
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.textContent = message;
 
     let toastContent = `
     <div class="toast-content">${message}</div>

@@ -40,6 +40,17 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="card settings-card" style="margin-top: 20px;">
+                    <div class="card-body">
+                        <h2>Prometheus</h2>
+                        <div class="form-group">
+                            <label for="prometheusAddress">Prometheus Address</label>
+                            <input type="text" id="prometheusAddress" name="prometheus_address" required>
+                            <small>Make sure the <code>--web.enable-admin-api</code> flag is enabled on your Prometheus instance.</small>
+                        </div>
+                    </div>
+                </div>
                 <button type="submit">Save Settings</button>
             </div>
         </form>
@@ -58,6 +69,7 @@
                     form.yaml_endpoint_path.value = settings.yaml_endpoint_path;
                     form.yaml_endpoint_enabled.checked = settings.yaml_endpoint_enabled;
                     form.idle_timeout_minutes.value = settings.idle_timeout_minutes;
+                    form.prometheus_address.value = settings.prometheus_address;
                 } else {
                     const data = await response.json().catch(() => ({ error: 'Failed to load settings.' }));
                     showToast(data.error, 'error');
@@ -73,7 +85,8 @@
                 const settingsData = {
                     yaml_endpoint_path: form.yaml_endpoint_path.value,
                     yaml_endpoint_enabled: form.yaml_endpoint_enabled.checked,
-                    idle_timeout_minutes: parseInt(form.idle_timeout_minutes.value, 10)
+                    idle_timeout_minutes: parseInt(form.idle_timeout_minutes.value, 10),
+                    prometheus_address: form.prometheus_address.value
                 };
 
                 try {

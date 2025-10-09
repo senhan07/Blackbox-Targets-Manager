@@ -7,6 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
 from functools import wraps
 import re
+import requests
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -219,10 +220,91 @@ def bulk_action_route():
     if not all([action, target_ids]):
         return jsonify({'error': 'Missing action or target_ids'}), 400
 
+    if action in ['delete_series', 'remove_and_delete_metrics', 'delete_target_only']:
+        results = []
+        for target_id in target_ids:
+            if action == 'delete_series':
+                result = delete_series(target_id)
+            elif action == 'remove_and_delete_metrics':
+                result = remove_and_delete_metrics(target_id, force=data.get('force', False))
+            elif action == 'delete_target_only':
+                if db.hard_delete_target(target_id):
+                    result = {'success': True, 'message': 'Target deleted successfully from the database.'}
+                else:
+                    result = {'success': False, 'error': 'Failed to delete target from the database.'}
+            results.append({'target_id': target_id, 'result': result})
+        return jsonify(results)
+
+
     if db.bulk_action(action, target_ids):
         return jsonify({'message': 'Bulk action completed successfully (not saved)'})
 
     return jsonify({'error': 'Failed to perform bulk action'}), 500
+
+def delete_series(target_id):
+    settings = db.get_settings()
+    prometheus_address = settings.get('prometheus_address')
+    if not prometheus_address:
+        return {'success': False, 'error': 'Prometheus address not configured in settings.'}
+
+    target = db.get_target_by_id(target_id)
+    if not target:
+        return {'success': False, 'error': 'Target not found.'}
+
+    instance = target.get('instance')
+    delete_url = f'{prometheus_address}/api/v1/admin/tsdb/delete_series'
+    cleanup_url = f'{prometheus_address}/api/v1/admin/tsdb/clean_tombstones'
+
+    try:
+        # Delete the series
+        response = requests.post(delete_url, data={'match[]': f'{{instance="{instance}"}}'})
+        if response.status_code != 204:
+            return {'success': False, 'error': f'Error deleting series from Prometheus: {response.text}'}
+
+        # Clean tombstones
+        response = requests.post(cleanup_url)
+        if response.status_code != 204:
+            return {'success': False, 'error': f'Error cleaning tombstones in Prometheus: {response.text}'}
+
+        return {'success': True}
+    except requests.exceptions.RequestException as e:
+        return {'success': False, 'error': f'Error connecting to Prometheus: {e}'}
+
+
+def remove_and_delete_metrics(target_id, force=False):
+    if not force:
+        delete_result = delete_series(target_id)
+        if not delete_result['success']:
+            return {'success': False, 'error': delete_result['error'], 'force_option': True}
+
+    if db.hard_delete_target(target_id):
+        return {'success': True}
+    else:
+        return {'success': False, 'error': 'Failed to delete target from database.'}
+
+
+@app.route('/target/<int:target_id>/delete_series', methods=['POST'])
+@login_required
+@admin_required
+def delete_series_route(target_id):
+    result = delete_series(target_id)
+    if result['success']:
+        return jsonify({'message': 'Successfully deleted series from Prometheus.'})
+    else:
+        return jsonify({'error': result['error']}), 500
+
+@app.route('/target/<int:target_id>/remove_and_delete_metrics', methods=['POST'])
+@login_required
+@admin_required
+def remove_and_delete_metrics_route(target_id):
+    force = request.json.get('force', False)
+    result = remove_and_delete_metrics(target_id, force)
+    if result.get('success'):
+        return jsonify({'message': 'Successfully removed target and deleted metrics.'})
+    elif result.get('force_option'):
+        return jsonify({'error': result['error'], 'force_option': True}), 500
+    else:
+        return jsonify({'error': result.get('error', 'An unknown error occurred.')}), 500
 
 @app.route('/api/export/preview', methods=['POST'])
 @login_required
@@ -409,10 +491,16 @@ def update_settings():
     if not isinstance(enabled, bool):
         return jsonify({'error': 'YAML endpoint enabled must be a boolean.'}), 400
 
+    prometheus_address = data.get('prometheus_address')
+    if not prometheus_address or not (prometheus_address.startswith('http://') or prometheus_address.startswith('https://')):
+        return jsonify({'error': 'Invalid Prometheus address. It must start with http:// or https://'}), 400
+
+
     settings_data = {
         'yaml_endpoint_enabled': enabled,
         'yaml_endpoint_path': path,
-        'idle_timeout_minutes': timeout
+        'idle_timeout_minutes': timeout,
+        'prometheus_address': prometheus_address
     }
 
     if db.update_settings(settings_data):

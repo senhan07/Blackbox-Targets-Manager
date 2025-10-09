@@ -3,3 +3,4 @@ PyYAML
 Werkzeug
 Flask-WTF
 pytest-flask
+requests

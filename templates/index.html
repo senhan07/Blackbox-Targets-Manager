@@ -723,6 +723,63 @@
     </div>
   </div>
 
+  <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmationModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Confirm Deletion</h2>
+                <button class="close-modal" id="closeDeleteModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="affected-targets-section" style="margin-bottom: 15px;">
+                    <p>You are about to perform an action on the following target(s):</p>
+                    <ul id="affected-targets-list" style="max-height: 100px; overflow-y: auto; background-color: #f8f9fa; padding: 10px; border-radius: 5px;"></ul>
+                </div>
+                <p>Please choose a deletion method:</p>
+                <div id="delete-options">
+                    <div class="delete-option">
+                        <input type="radio" id="deleteSeries" name="delete_option" value="delete_series" checked>
+                        <label for="deleteSeries">
+                            <strong>Delete Series</strong>
+                            <p>Deletes the metric series from Prometheus but keeps the target in the application.</p>
+                        </label>
+                    </div>
+                    <div class="delete-option">
+                        <input type="radio" id="deleteTargetOnly" name="delete_option" value="delete_target_only">
+                        <label for="deleteTargetOnly">
+                            <strong>Delete Target Only</strong>
+                            <p>Removes the target from the application but keeps the metric series in Prometheus.</p>
+                        </label>
+                    </div>
+                    <div class="delete-option">
+                        <input type="radio" id="removeAndDelete" name="delete_option" value="remove_and_delete_metrics">
+                        <label for="removeAndDelete">
+                            <strong>Remove and Delete Metrics</strong>
+                            <p>Deletes the metric series from Prometheus AND removes the target from the application.</p>
+                        </label>
+                    </div>
+                </div>
+                <div id="permanent-action-warning" style="display: none; margin-top: 15px; background-color: #f8d7da; padding: 10px; border-radius: 5px; border: 1px solid #f5c6cb;">
+                    <strong style="color: #721c24;">Warning:</strong> This action is permanent and cannot be undone.
+                    <div style="margin-top: 10px;">
+                        <input type="checkbox" id="confirmPermanentAction">
+                        <label for="confirmPermanentAction">I understand this is a permanent action.</label>
+                    </div>
+                </div>
+                 <div id="force-remove-section" style="display: none; margin-top: 15px; background-color: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffeeba;">
+                    <strong style="color: #856404;">Prometheus Error:</strong> <span id="prometheus-error-message"></span>
+                    <div style="margin-top: 10px;">
+                        <input type="checkbox" id="forceRemoveCheckbox">
+                        <label for="forceRemoveCheckbox">Force remove target from the database.</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="text-align: right; margin-top: 20px;">
+                <button id="confirmDeleteBtn" class="header-button button-danger" disabled>Confirm</button>
+            </div>
+        </div>
+    </div>
+
   <!-- Import CSV Modal -->
   <div id="importModal" class="modal">
     <div class="modal-content">
@@ -1118,24 +1175,154 @@
 
     // REMOVE TARGET
     async function removeTarget(uid) {
-      if (confirm(`Are you sure you want to delete this target?`)) {
-        try {
-          const response = await fetch(`/target/${uid}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRFToken': csrfToken
-            }
-          });
-          const data = await response.json();
-          showToast(data.message);
-          updateUnsavedChanges(true);
-          loadTargets(); // Reload the targets instead of the page
-        } catch (error) {
-          console.error('Error removing target:', error);
-          showToast('Error removing target. Please try again.', 'error');
-        }
-      }
+        selectedTargetIds = [uid];
+        openDeleteModal();
     }
+
+    let currentTargetIdsForDeletion = [];
+
+    function openDeleteModal(isBulk = false) {
+        if (!isBulk) {
+            if (selectedTargetIds.length === 0) {
+                showToast('No target selected for deletion.', 'error');
+                return;
+            }
+            currentTargetIdsForDeletion = [...selectedTargetIds];
+        } else {
+            currentTargetIdsForDeletion = [...selectedTargetIds];
+        }
+
+        if (currentTargetIdsForDeletion.length === 0) {
+            showToast('No targets selected for deletion.', 'error');
+            return;
+        }
+
+        // Populate affected targets list
+        const affectedTargetsList = document.getElementById('affected-targets-list');
+        affectedTargetsList.innerHTML = '';
+        const affectedTargets = targets.filter(t => currentTargetIdsForDeletion.includes(t.id));
+        affectedTargets.forEach(t => {
+            const li = document.createElement('li');
+            li.textContent = t.short_name || t.instance;
+            affectedTargetsList.appendChild(li);
+        });
+
+        // Reset and show modal
+        const modal = document.getElementById('deleteConfirmationModal');
+        modal.style.display = 'block';
+
+        document.getElementById('permanent-action-warning').style.display = 'block';
+        document.getElementById('force-remove-section').style.display = 'none';
+
+        document.getElementById('confirmPermanentAction').checked = false;
+        document.getElementById('forceRemoveCheckbox').checked = false;
+
+        document.getElementById('confirmDeleteBtn').disabled = true;
+        document.getElementById('deleteSeries').checked = true;
+    }
+
+    document.getElementById('closeDeleteModal').addEventListener('click', () => {
+        document.getElementById('deleteConfirmationModal').style.display = 'none';
+    });
+
+    function updateConfirmButtonState() {
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        const permanentActionChecked = document.getElementById('confirmPermanentAction').checked;
+        const forceRemoveVisible = document.getElementById('force-remove-section').style.display === 'block';
+        const forceRemoveChecked = document.getElementById('forceRemoveCheckbox').checked;
+
+        if (forceRemoveVisible) {
+            confirmBtn.disabled = !forceRemoveChecked;
+        } else {
+            confirmBtn.disabled = !permanentActionChecked;
+        }
+    }
+
+    document.querySelectorAll('input[name="delete_option"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            document.getElementById('confirmPermanentAction').checked = false;
+            updateConfirmButtonState();
+        });
+    });
+
+    document.getElementById('confirmPermanentAction').addEventListener('change', updateConfirmButtonState);
+    document.getElementById('forceRemoveCheckbox').addEventListener('change', updateConfirmButtonState);
+
+
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+        const deleteOption = document.querySelector('input[name="delete_option"]:checked').value;
+        const isPermanentAction = document.getElementById('confirmPermanentAction').checked;
+        const isForceRemove = document.getElementById('forceRemoveCheckbox').checked;
+        const isForceRemoveVisible = document.getElementById('force-remove-section').style.display === 'block';
+
+        if (!isForceRemoveVisible && !isPermanentAction) {
+            showToast('Please confirm you understand this is a permanent action.', 'error');
+            return;
+        }
+        if (isForceRemoveVisible && !isForceRemove) {
+            showToast('Please confirm you want to force remove the target.', 'error');
+            return;
+        }
+
+        const body = {
+            action: deleteOption,
+            target_ids: currentTargetIdsForDeletion,
+            force: isForceRemove
+        };
+
+        try {
+            const response = await fetch('/targets/bulk_action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(body)
+            });
+
+            const results = await response.json();
+
+            if (response.ok) {
+                let successCount = 0;
+                let errorCount = 0;
+                let forceOption = false;
+                let errorMessage = '';
+
+                results.forEach(res => {
+                    if (res.result.success) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                        if (res.result.force_option) {
+                            forceOption = true;
+                            errorMessage = res.result.error;
+                        }
+                    }
+                });
+
+                if (errorCount > 0) {
+                    showToast(`Bulk action completed with ${errorCount} errors.`, 'error');
+                    if (forceOption) {
+                        document.getElementById('prometheus-error-message').textContent = errorMessage;
+                        document.getElementById('force-remove-section').style.display = 'block';
+                        document.getElementById('permanent-action-warning').style.display = 'none';
+                        updateConfirmButtonState(); // Re-evaluate button state
+                        return; // Stop and let user decide
+                    }
+                } else {
+                    showToast(`Successfully processed ${successCount} targets.`, 'success');
+                }
+            } else {
+                showToast(results.error || 'An error occurred during bulk action.', 'error');
+            }
+        } catch (error) {
+            showToast('A network error occurred. Please try again.', 'error');
+        }
+
+        document.getElementById('deleteConfirmationModal').style.display = 'none';
+        loadTargets();
+        selectedTargetIds = [];
+    });
 
 
     // SORT TABLE
@@ -1354,6 +1541,11 @@
     async function bulkAction(action) {
         if (selectedTargetIds.length === 0) {
             showToast('No targets selected.', 'error');
+            return;
+        }
+
+        if (action === 'remove') {
+            openDeleteModal(true);
             return;
         }
 
