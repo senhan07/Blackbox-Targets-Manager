@@ -210,6 +210,7 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 20px;
+      cursor: move;
     }
 
     .modal-title {
@@ -641,6 +642,72 @@
         opacity: 1;
     }
 
+    #confirmDeleteBtn:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+
+    #delete-progress-container {
+        margin-top: 15px;
+        display: none;
+    }
+
+    #delete-progress-bar {
+        width: 100%;
+        background-color: #e0e0e0;
+        border-radius: 5px;
+        height: 20px;
+        overflow: hidden;
+    }
+
+    #delete-progress-bar-inner {
+        height: 100%;
+        width: 0;
+        background-color: #007bff;
+        transition: width 0.2s;
+        text-align: center;
+        color: white;
+        line-height: 20px;
+    }
+
+    #delete-status-text {
+        margin-top: 5px;
+        font-size: 12px;
+        color: #666;
+    }
+
+    #failed-deletions-section {
+        margin-top: 15px;
+        display: none;
+    }
+
+    #failed-deletions-list {
+        list-style-type: none;
+        padding: 0;
+        max-height: 150px;
+        overflow-y: auto;
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 5px;
+        padding: 10px;
+    }
+
+    #failed-deletions-list li {
+        margin-bottom: 5px;
+        font-size: 12px;
+    }
+
+    #ui-freeze-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 9998; /* Below the modal but above everything else */
+        display: none; /* Hidden by default */
+    }
+
     @keyframes slideIn {
       from {
         transform: translateX(100%);
@@ -667,6 +734,7 @@
 </head>
 
 <body>
+    <div id="ui-freeze-overlay"></div>
     <div id="context-menu">
         <ul>
             <li id="context-enable">Enable</li>
@@ -772,6 +840,16 @@
                         <input type="checkbox" id="forceRemoveCheckbox">
                         <label for="forceRemoveCheckbox">Force remove target from the database.</label>
                     </div>
+                </div>
+                <div id="delete-progress-container">
+                    <div id="delete-status-text"></div>
+                    <div id="delete-progress-bar">
+                        <div id="delete-progress-bar-inner"></div>
+                    </div>
+                </div>
+                <div id="failed-deletions-section">
+                    <strong>Failed Deletions:</strong>
+                    <ul id="failed-deletions-list"></ul>
                 </div>
             </div>
             <div class="modal-footer" style="text-align: right; margin-top: 20px;">
@@ -955,6 +1033,7 @@
     // Track unsaved changes
     let hasUnsavedChanges = false;
     let unsavedToast = null;
+    let isDeleting = false;
 
     function updateUnsavedChanges(hasChanges) {
       hasUnsavedChanges = hasChanges;
@@ -978,9 +1057,11 @@
 
     // Window close handler
     window.addEventListener('beforeunload', (e) => {
-      if (hasUnsavedChanges) {
+      if (hasUnsavedChanges || isDeleting) {
+        const message = isDeleting ? 'A deletion is in progress. Are you sure you want to leave?' : 'You have unsaved changes. Are you sure you want to leave?';
         e.preventDefault();
-        e.returnValue = '';
+        e.returnValue = message;
+        return message;
       }
     });
 
@@ -1181,7 +1262,72 @@
 
     let currentTargetIdsForDeletion = [];
 
+    function makeModalDraggable(modalId) {
+        const modal = document.getElementById(modalId);
+        const modalContent = modal.querySelector('.modal-content');
+        const header = modal.querySelector('.modal-header');
+
+        if (modal.dataset.isDraggable) return;
+        modal.dataset.isDraggable = 'true';
+
+        let isDragging = false;
+        let initialX, initialY;
+
+        header.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            const rect = modalContent.getBoundingClientRect();
+
+            modalContent.style.position = 'absolute';
+            modalContent.style.margin = '0';
+            modalContent.style.top = rect.top + 'px';
+            modalContent.style.left = rect.left + 'px';
+
+            initialX = e.clientX - rect.left;
+            initialY = e.clientY - rect.top;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                e.preventDefault();
+                const newX = e.clientX - initialX;
+                const newY = e.clientY - initialY;
+                modalContent.style.left = `${newX}px`;
+                modalContent.style.top = `${newY}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+    }
+
+    function resetDeleteModal() {
+        document.getElementById('delete-progress-container').style.display = 'none';
+        document.getElementById('failed-deletions-section').style.display = 'none';
+        document.getElementById('failed-deletions-list').innerHTML = '';
+        const progressBarInner = document.getElementById('delete-progress-bar-inner');
+        progressBarInner.style.width = '0%';
+        progressBarInner.textContent = '';
+        document.getElementById('delete-status-text').textContent = '';
+
+        document.getElementById('permanent-action-warning').style.display = 'block';
+        document.getElementById('force-remove-section').style.display = 'none';
+        document.getElementById('confirmPermanentAction').checked = false;
+        document.getElementById('forceRemoveCheckbox').checked = false;
+        document.getElementById('deleteSeries').checked = true;
+
+        const modalContent = document.querySelector('#deleteConfirmationModal .modal-content');
+        modalContent.style.position = 'relative';
+        modalContent.style.top = '';
+        modalContent.style.left = '';
+        modalContent.style.margin = '5% auto';
+
+        updateConfirmButtonState();
+    }
+
     function openDeleteModal(isBulk = false) {
+        resetDeleteModal();
+        makeModalDraggable('deleteConfirmationModal');
         if (!isBulk) {
             if (selectedTargetIds.length === 0) {
                 showToast('No target selected for deletion.', 'error');
@@ -1264,62 +1410,87 @@
             return;
         }
 
-        const body = {
-            action: deleteOption,
-            target_ids: currentTargetIdsForDeletion,
-            force: isForceRemove
-        };
+        isDeleting = true;
+        document.getElementById('ui-freeze-overlay').style.display = 'block';
+        document.getElementById('delete-progress-container').style.display = 'block';
 
-        try {
-            const response = await fetch('/targets/bulk_action', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                body: JSON.stringify(body)
-            });
+        const totalTargets = currentTargetIdsForDeletion.length;
+        let successCount = 0;
+        let errorCount = 0;
+        const failedDeletions = [];
 
-            const results = await response.json();
+        for (let i = 0; i < totalTargets; i++) {
+            const targetId = currentTargetIdsForDeletion[i];
+            const target = targets.find(t => t.id === targetId);
+            const statusText = `Processing ${i + 1} of ${totalTargets}: ${target.short_name || target.instance}`;
 
-            if (response.ok) {
-                let successCount = 0;
-                let errorCount = 0;
-                let forceOption = false;
-                let errorMessage = '';
+            document.getElementById('delete-status-text').textContent = statusText;
 
-                results.forEach(res => {
-                    if (res.result.success) {
-                        successCount++;
-                    } else {
-                        errorCount++;
-                        if (res.result.force_option) {
-                            forceOption = true;
-                            errorMessage = res.result.error;
-                        }
-                    }
+            const progressBarInner = document.getElementById('delete-progress-bar-inner');
+            const progress = ((i + 1) / totalTargets) * 100;
+            progressBarInner.style.width = `${progress}%`;
+            progressBarInner.textContent = `${Math.round(progress)}%`;
+
+            const body = {
+                action: deleteOption,
+                target_ids: [targetId],
+                force: isForceRemove
+            };
+
+            try {
+                const response = await fetch('/targets/bulk_action', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify(body)
                 });
+                const results = await response.json();
+                const result = results[0].result;
 
-                if (errorCount > 0) {
-                    showToast(`Bulk action completed with ${errorCount} errors.`, 'error');
-                    if (forceOption) {
-                        document.getElementById('prometheus-error-message').textContent = errorMessage;
+                if (result.success) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                    failedDeletions.push({ target, error: result.error });
+                    if (result.force_option) {
+                        document.getElementById('prometheus-error-message').textContent = result.error;
                         document.getElementById('force-remove-section').style.display = 'block';
                         document.getElementById('permanent-action-warning').style.display = 'none';
-                        updateConfirmButtonState(); // Re-evaluate button state
-                        return; // Stop and let user decide
+                        updateConfirmButtonState();
+                        // We stop here and let the user decide on the force option.
+                        // The loop will break and the finally block will clean up the UI freeze.
+                        return;
                     }
-                } else {
-                    showToast(`Successfully processed ${successCount} targets.`, 'success');
                 }
-            } else {
-                showToast(results.error || 'An error occurred during bulk action.', 'error');
+            } catch (error) {
+                errorCount++;
+                failedDeletions.push({ target, error: 'A network error occurred.' });
             }
-        } catch (error) {
-            showToast('A network error occurred. Please try again.', 'error');
         }
 
-        document.getElementById('deleteConfirmationModal').style.display = 'none';
+        isDeleting = false;
+        document.getElementById('ui-freeze-overlay').style.display = 'none';
+
+        if (errorCount > 0) {
+            showToast(`Deletion completed with ${errorCount} errors.`, 'error');
+            const failedList = document.getElementById('failed-deletions-list');
+            failedList.innerHTML = '';
+            failedDeletions.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = `${item.target.short_name || item.target.instance}: ${item.error}`;
+                failedList.appendChild(li);
+            });
+            document.getElementById('failed-deletions-section').style.display = 'block';
+        } else {
+            showToast(`Successfully deleted ${successCount} targets.`, 'success');
+            setTimeout(() => {
+                document.getElementById('deleteConfirmationModal').style.display = 'none';
+                resetDeleteModal();
+            }, 2000); // Give user time to see the success message
+        }
+
         loadTargets();
         selectedTargetIds = [];
     });
