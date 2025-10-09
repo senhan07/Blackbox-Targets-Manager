@@ -220,13 +220,18 @@ def bulk_action_route():
     if not all([action, target_ids]):
         return jsonify({'error': 'Missing action or target_ids'}), 400
 
-    if action in ['delete_series', 'remove_and_delete_metrics']:
+    if action in ['delete_series', 'remove_and_delete_metrics', 'delete_target_only']:
         results = []
         for target_id in target_ids:
             if action == 'delete_series':
                 result = delete_series(target_id)
-            else: # remove_and_delete_metrics
+            elif action == 'remove_and_delete_metrics':
                 result = remove_and_delete_metrics(target_id, force=data.get('force', False))
+            elif action == 'delete_target_only':
+                if db.hard_delete_target(target_id):
+                    result = {'success': True, 'message': 'Target deleted successfully from the database.'}
+                else:
+                    result = {'success': False, 'error': 'Failed to delete target from the database.'}
             results.append({'target_id': target_id, 'result': result})
         return jsonify(results)
 

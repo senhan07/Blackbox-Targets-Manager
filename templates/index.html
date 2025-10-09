@@ -731,13 +731,24 @@
                 <button class="close-modal" id="closeDeleteModal">&times;</button>
             </div>
             <div class="modal-body">
-                <p>Please choose a deletion method for the selected target(s):</p>
+                <div id="affected-targets-section" style="margin-bottom: 15px;">
+                    <p>You are about to perform an action on the following target(s):</p>
+                    <ul id="affected-targets-list" style="max-height: 100px; overflow-y: auto; background-color: #f8f9fa; padding: 10px; border-radius: 5px;"></ul>
+                </div>
+                <p>Please choose a deletion method:</p>
                 <div id="delete-options">
                     <div class="delete-option">
                         <input type="radio" id="deleteSeries" name="delete_option" value="delete_series" checked>
                         <label for="deleteSeries">
                             <strong>Delete Series</strong>
                             <p>Deletes the metric series from Prometheus but keeps the target in the application.</p>
+                        </label>
+                    </div>
+                    <div class="delete-option">
+                        <input type="radio" id="deleteTargetOnly" name="delete_option" value="delete_target_only">
+                        <label for="deleteTargetOnly">
+                            <strong>Delete Target Only</strong>
+                            <p>Removes the target from the application but keeps the metric series in Prometheus.</p>
                         </label>
                     </div>
                     <div class="delete-option">
@@ -748,11 +759,11 @@
                         </label>
                     </div>
                 </div>
-                <div id="permanent-delete-warning" style="display: none; margin-top: 15px; background-color: #f8d7da; padding: 10px; border-radius: 5px; border: 1px solid #f5c6cb;">
+                <div id="permanent-action-warning" style="display: none; margin-top: 15px; background-color: #f8d7da; padding: 10px; border-radius: 5px; border: 1px solid #f5c6cb;">
                     <strong style="color: #721c24;">Warning:</strong> This action is permanent and cannot be undone.
                     <div style="margin-top: 10px;">
-                        <input type="checkbox" id="confirmPermanentDelete">
-                        <label for="confirmPermanentDelete">I understand this is a permanent action.</label>
+                        <input type="checkbox" id="confirmPermanentAction">
+                        <label for="confirmPermanentAction">I understand this is a permanent action.</label>
                     </div>
                 </div>
                  <div id="force-remove-section" style="display: none; margin-top: 15px; background-color: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffeeba;">
@@ -764,7 +775,7 @@
                 </div>
             </div>
             <div class="modal-footer" style="text-align: right; margin-top: 20px;">
-                <button id="confirmDeleteBtn" class="header-button button-danger">Confirm</button>
+                <button id="confirmDeleteBtn" class="header-button button-danger" disabled>Confirm</button>
             </div>
         </div>
     </div>
@@ -1186,11 +1197,27 @@
             return;
         }
 
-        document.getElementById('deleteConfirmationModal').style.display = 'block';
-        document.getElementById('permanent-delete-warning').style.display = 'none';
-        document.getElementById('confirmPermanentDelete').checked = false;
+        // Populate affected targets list
+        const affectedTargetsList = document.getElementById('affected-targets-list');
+        affectedTargetsList.innerHTML = '';
+        const affectedTargets = targets.filter(t => currentTargetIdsForDeletion.includes(t.id));
+        affectedTargets.forEach(t => {
+            const li = document.createElement('li');
+            li.textContent = t.short_name || t.instance;
+            affectedTargetsList.appendChild(li);
+        });
+
+        // Reset and show modal
+        const modal = document.getElementById('deleteConfirmationModal');
+        modal.style.display = 'block';
+
+        document.getElementById('permanent-action-warning').style.display = 'block';
         document.getElementById('force-remove-section').style.display = 'none';
+
+        document.getElementById('confirmPermanentAction').checked = false;
         document.getElementById('forceRemoveCheckbox').checked = false;
+
+        document.getElementById('confirmDeleteBtn').disabled = true;
         document.getElementById('deleteSeries').checked = true;
     }
 
@@ -1198,31 +1225,47 @@
         document.getElementById('deleteConfirmationModal').style.display = 'none';
     });
 
+    function updateConfirmButtonState() {
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        const permanentActionChecked = document.getElementById('confirmPermanentAction').checked;
+        const forceRemoveVisible = document.getElementById('force-remove-section').style.display === 'block';
+        const forceRemoveChecked = document.getElementById('forceRemoveCheckbox').checked;
+
+        if (forceRemoveVisible) {
+            confirmBtn.disabled = !forceRemoveChecked;
+        } else {
+            confirmBtn.disabled = !permanentActionChecked;
+        }
+    }
+
     document.querySelectorAll('input[name="delete_option"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            const warning = document.getElementById('permanent-delete-warning');
-            if (this.value === 'remove_and_delete_metrics') {
-                warning.style.display = 'block';
-            } else {
-                warning.style.display = 'none';
-            }
+        radio.addEventListener('change', () => {
+            document.getElementById('confirmPermanentAction').checked = false;
+            updateConfirmButtonState();
         });
     });
 
+    document.getElementById('confirmPermanentAction').addEventListener('change', updateConfirmButtonState);
+    document.getElementById('forceRemoveCheckbox').addEventListener('change', updateConfirmButtonState);
+
+
     document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
         const deleteOption = document.querySelector('input[name="delete_option"]:checked').value;
-        const isPermanentDelete = document.getElementById('confirmPermanentDelete').checked;
+        const isPermanentAction = document.getElementById('confirmPermanentAction').checked;
         const isForceRemove = document.getElementById('forceRemoveCheckbox').checked;
+        const isForceRemoveVisible = document.getElementById('force-remove-section').style.display === 'block';
 
-        if (deleteOption === 'remove_and_delete_metrics' && !isPermanentDelete && !isForceRemove) {
-            showToast('Please confirm that you understand this is a permanent action.', 'error');
+        if (!isForceRemoveVisible && !isPermanentAction) {
+            showToast('Please confirm you understand this is a permanent action.', 'error');
+            return;
+        }
+        if (isForceRemoveVisible && !isForceRemove) {
+            showToast('Please confirm you want to force remove the target.', 'error');
             return;
         }
 
-        const action = (deleteOption === 'delete_series') ? 'delete_series' : 'remove_and_delete_metrics';
-
         const body = {
-            action: action,
+            action: deleteOption,
             target_ids: currentTargetIdsForDeletion,
             force: isForceRemove
         };
@@ -1262,6 +1305,8 @@
                     if (forceOption) {
                         document.getElementById('prometheus-error-message').textContent = errorMessage;
                         document.getElementById('force-remove-section').style.display = 'block';
+                        document.getElementById('permanent-action-warning').style.display = 'none';
+                        updateConfirmButtonState(); // Re-evaluate button state
                         return; // Stop and let user decide
                     }
                 } else {
