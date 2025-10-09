@@ -1,0 +1,2 @@
+- targets:
+  - 127.0.0.1:9115;e2e-test.com;http_2xx;None;WEB;SERVER;LAN;e2e-location;e2e-test

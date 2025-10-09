@@ -77,12 +77,19 @@ class Database:
                     id INTEGER PRIMARY KEY CHECK (id = 1),
                     yaml_endpoint_enabled INTEGER DEFAULT 1,
                     yaml_endpoint_path TEXT DEFAULT '/raw-yaml',
-                    idle_timeout_minutes INTEGER DEFAULT 15
+                    idle_timeout_minutes INTEGER DEFAULT 15,
+                    prometheus_address TEXT DEFAULT 'http://prometheus:9090'
                 )
             ''')
 
             # Ensure a default settings row exists
             cursor.execute('INSERT OR IGNORE INTO settings (id) VALUES (1)')
+
+            # Add prometheus_address column if it doesn't exist
+            try:
+                cursor.execute("ALTER TABLE settings ADD COLUMN prometheus_address TEXT DEFAULT 'http://prometheus:9090'")
+            except sqlite3.OperationalError:
+                pass # Column already exists
 
             conn.commit()
 
@@ -201,6 +208,15 @@ class Database:
             cursor.execute('SELECT * FROM targets')
             return [dict(row) for row in cursor.fetchall()]
 
+    def get_target_by_id(self, target_id):
+        """Get a single target by its ID from the main database"""
+        with sqlite3.connect(self.db_file) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM targets WHERE id = ?', (target_id,))
+            target = cursor.fetchone()
+            return dict(target) if target else None
+
     def delete_target(self, id):
         """Delete target in temporary storage"""
         for i, target in enumerate(self.temp_targets):
@@ -210,6 +226,14 @@ class Database:
                 self.temp_targets.pop(i)
                 return True
         return False
+
+    def hard_delete_target(self, target_id):
+        """Permanently delete a target from the database"""
+        with sqlite3.connect(self.db_file) as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM targets WHERE id = ?', (target_id,))
+            conn.commit()
+            return cursor.rowcount > 0
 
     def load_targets_to_temp(self):
         """Load all targets from database to temporary storage"""
@@ -361,12 +385,14 @@ class Database:
                 UPDATE settings
                 SET yaml_endpoint_enabled = ?,
                     yaml_endpoint_path = ?,
-                    idle_timeout_minutes = ?
+                    idle_timeout_minutes = ?,
+                    prometheus_address = ?
                 WHERE id = 1
             ''', (
                 settings_data['yaml_endpoint_enabled'],
                 settings_data['yaml_endpoint_path'],
-                settings_data['idle_timeout_minutes']
+                settings_data['idle_timeout_minutes'],
+                settings_data['prometheus_address']
             ))
             conn.commit()
             return cursor.rowcount > 0
