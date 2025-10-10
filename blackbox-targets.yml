@@ -1,0 +1,2 @@
+- targets:
+  - blackbox-prober:9115;1.1.1.1;icmp;test-zone;test-service;test-device;test-conn;test-loc;test-target

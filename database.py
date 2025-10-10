@@ -36,21 +36,50 @@ class Database:
     def init_db(self):
         with sqlite3.connect(self.db_file) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS targets (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    address TEXT NOT NULL,
-                    instance TEXT NOT NULL,
-                    module TEXT NOT NULL,
-                    zone TEXT,
-                    service TEXT,
-                    device_type TEXT,
-                    connection_type TEXT,
-                    location TEXT,
-                    short_name TEXT NOT NULL,
-                    enabled INTEGER DEFAULT 1
-                )
-            ''')
+
+            # Check if migration for 'address' column is needed
+            cursor.execute("PRAGMA table_info(targets)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if 'address' in columns:
+                # Perform migration to remove 'address' column
+                cursor.execute('ALTER TABLE targets RENAME TO targets_old')
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS targets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        instance TEXT NOT NULL,
+                        module TEXT NOT NULL,
+                        zone TEXT,
+                        service TEXT,
+                        device_type TEXT,
+                        connection_type TEXT,
+                        location TEXT,
+                        short_name TEXT NOT NULL,
+                        enabled INTEGER DEFAULT 1
+                    )
+                ''')
+                # Copy data from old table to new table, excluding the 'address' column
+                cursor.execute('''
+                    INSERT INTO targets (id, instance, module, zone, service, device_type, connection_type, location, short_name, enabled)
+                    SELECT id, instance, module, zone, service, device_type, connection_type, location, short_name, enabled FROM targets_old
+                ''')
+                cursor.execute('DROP TABLE targets_old')
+            else:
+                 # If no migration needed, just create the table if it doesn't exist
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS targets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        instance TEXT NOT NULL,
+                        module TEXT NOT NULL,
+                        zone TEXT,
+                        service TEXT,
+                        device_type TEXT,
+                        connection_type TEXT,
+                        location TEXT,
+                        short_name TEXT NOT NULL,
+                        enabled INTEGER DEFAULT 1
+                    )
+                ''')
+
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,12 +90,12 @@ class Database:
             ''')
 
             # Add columns if they don't exist for backward compatibility
-            columns = [
+            user_columns = [
                 ('password_changed', 'INTEGER DEFAULT 0'),
                 ('is_enabled', 'INTEGER DEFAULT 1')
             ]
 
-            for column, definition in columns:
+            for column, definition in user_columns:
                 try:
                     cursor.execute(f'ALTER TABLE users ADD COLUMN {column} {definition}')
                 except sqlite3.OperationalError:
@@ -85,11 +114,16 @@ class Database:
             # Ensure a default settings row exists
             cursor.execute('INSERT OR IGNORE INTO settings (id) VALUES (1)')
 
-            # Add prometheus_address column if it doesn't exist
-            try:
-                cursor.execute("ALTER TABLE settings ADD COLUMN prometheus_address TEXT DEFAULT 'http://prometheus:9090'")
-            except sqlite3.OperationalError:
-                pass # Column already exists
+            # Add columns to settings table if they don't exist for backward compatibility
+            setting_columns = [
+                ('prometheus_address', "TEXT DEFAULT 'http://prometheus:9090'"),
+                ('blackbox_prober_address', "TEXT DEFAULT 'blackbox-prober:9115'")
+            ]
+            for column, definition in setting_columns:
+                try:
+                    cursor.execute(f"ALTER TABLE settings ADD COLUMN {column} {definition}")
+                except sqlite3.OperationalError:
+                    pass # Column already exists
 
             conn.commit()
 
@@ -172,7 +206,6 @@ class Database:
         temp_id = -len(self.temp_changes['added']) - 1
         new_target = {
             'id': temp_id,
-            'address': target_data['address'],
             'instance': target_data['instance'],
             'module': target_data['module'],
             'zone': target_data['zone'],
@@ -292,11 +325,11 @@ class Database:
                     if target['id'] == id:
                         cursor.execute('''
                             UPDATE targets
-                            SET address = ?, instance = ?, module = ?, zone = ?, service = ?,
+                            SET instance = ?, module = ?, zone = ?, service = ?,
                                 device_type = ?, connection_type = ?, location = ?, short_name = ?
                             WHERE id = ?
                         ''', (
-                            target['address'], target['instance'], target['module'], target['zone'],
+                            target['instance'], target['module'], target['zone'],
                             target['service'], target['device_type'], target['connection_type'],
                             target['location'], target['short_name'], id
                         ))
@@ -304,12 +337,11 @@ class Database:
             for target in self.temp_changes['added']:
                 cursor.execute('''
                     INSERT INTO targets (
-                        address, instance, module, zone, service,
+                        instance, module, zone, service,
                         device_type, connection_type, location,
                         short_name, enabled
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
-                    target['address'],
                     target['instance'],
                     target['module'],
                     target['zone'],
@@ -386,23 +418,28 @@ class Database:
                 SET yaml_endpoint_enabled = ?,
                     yaml_endpoint_path = ?,
                     idle_timeout_minutes = ?,
-                    prometheus_address = ?
+                    prometheus_address = ?,
+                    blackbox_prober_address = ?
                 WHERE id = 1
             ''', (
                 settings_data['yaml_endpoint_enabled'],
                 settings_data['yaml_endpoint_path'],
                 settings_data['idle_timeout_minutes'],
-                settings_data['prometheus_address']
+                settings_data['prometheus_address'],
+                settings_data['blackbox_prober_address']
             ))
             conn.commit()
             return cursor.rowcount > 0
 
     def generate_yaml_content(self):
+        settings = self.get_settings()
+        prober_address = settings.get('blackbox_prober_address', 'blackbox-prober:9115') if settings else 'blackbox-prober:9115'
+
         targets = self.get_all_targets()
         yaml_lines = ["- targets:"]
 
         for target in targets:
-            target_line = f"  {'# ' if not target['enabled'] else ''}- {target['address']};{target['instance']};" \
+            target_line = f"  {'# ' if not target['enabled'] else ''}- {prober_address};{target['instance']};" \
                          f"{target['module']};{target['zone']};{target['service']};{target['device_type']};" \
                          f"{target['connection_type']};{target['location']};" \
                          f"{target['short_name']}"

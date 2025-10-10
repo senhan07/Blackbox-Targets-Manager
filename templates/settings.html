@@ -43,11 +43,26 @@
 
                 <div class="card settings-card" style="margin-top: 20px;">
                     <div class="card-body">
-                        <h2>Prometheus</h2>
+                        <h2>Connections</h2>
                         <div class="form-group">
                             <label for="prometheusAddress">Prometheus Address</label>
-                            <input type="text" id="prometheusAddress" name="prometheus_address" required>
+                            <div class="connection-check-container">
+                                <input type="text" id="prometheusAddress" name="prometheus_address" required>
+                                <button type="button" class="check-connection-btn" data-service="prometheus">Check Connection</button>
+                                <span class="connection-status" id="prometheusStatus"></span>
+                            </div>
                             <small>Make sure the <code>--web.enable-admin-api</code> flag is enabled on your Prometheus instance.</small>
+                            <div class="connection-error" id="prometheusError"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="blackboxProberAddress">Blackbox Prober Address</label>
+                             <div class="connection-check-container">
+                                <input type="text" id="blackboxProberAddress" name="blackbox_prober_address" required>
+                                <button type="button" class="check-connection-btn" data-service="blackbox">Check Connection</button>
+                                <span class="connection-status" id="blackboxStatus"></span>
+                            </div>
+                            <small>Should be in the format <code>host:port</code>, e.g., <code>blackbox-prober:9115</code>.</small>
+                            <div class="connection-error" id="blackboxError"></div>
                         </div>
                     </div>
                 </div>
@@ -70,6 +85,7 @@
                     form.yaml_endpoint_enabled.checked = settings.yaml_endpoint_enabled;
                     form.idle_timeout_minutes.value = settings.idle_timeout_minutes;
                     form.prometheus_address.value = settings.prometheus_address;
+                    form.blackbox_prober_address.value = settings.blackbox_prober_address;
                 } else {
                     const data = await response.json().catch(() => ({ error: 'Failed to load settings.' }));
                     showToast(data.error, 'error');
@@ -86,7 +102,8 @@
                     yaml_endpoint_path: form.yaml_endpoint_path.value,
                     yaml_endpoint_enabled: form.yaml_endpoint_enabled.checked,
                     idle_timeout_minutes: parseInt(form.idle_timeout_minutes.value, 10),
-                    prometheus_address: form.prometheus_address.value
+                    prometheus_address: form.prometheus_address.value,
+                    blackbox_prober_address: form.blackbox_prober_address.value
                 };
 
                 try {
@@ -109,6 +126,46 @@
                 } catch (error) {
                     showToast('An error occurred while saving settings.', 'error');
                 }
+            });
+
+            // Handle connection checks
+            document.querySelectorAll('.check-connection-btn').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const service = button.dataset.service;
+                    const address = document.getElementById(`${service}Address`).value;
+                    const statusSpan = document.getElementById(`${service}Status`);
+                    const errorDiv = document.getElementById(`${service}Error`);
+
+                    statusSpan.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    errorDiv.textContent = '';
+                    errorDiv.style.display = 'none';
+
+                    try {
+                        const response = await fetch('/check_connection', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken
+                            },
+                            body: JSON.stringify({ service, address })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            statusSpan.innerHTML = '<i class="fas fa-check-circle" style="color: green;"></i>';
+                        } else {
+                            statusSpan.innerHTML = '<i class="fas fa-times-circle" style="color: red;"></i>';
+                            errorDiv.textContent = data.error;
+                            errorDiv.style.display = 'block';
+                        }
+                    } catch (error) {
+                        statusSpan.innerHTML = '<i class="fas fa-times-circle" style="color: red;"></i>';
+                        errorDiv.textContent = 'A network error occurred. Please check the console for details.';
+                        errorDiv.style.display = 'block';
+                        console.error(`Error checking ${service} connection:`, error);
+                    }
+                });
             });
         });
     </script>

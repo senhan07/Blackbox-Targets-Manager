@@ -921,7 +921,6 @@
       </div>
       <div class="modal-body">
         <form id="addTargetForm">
-          <input type="text" name="address" placeholder="Blackbox Prober (IP:PORT)" value="127.0.0.1:9115" required>
           <input type="text" name="instance" placeholder="Target Address (Domain or IP)" required>
           <select name="module" required>
             <option value="" disabled selected>Select probe module</option>
@@ -977,7 +976,6 @@
 
   <div class="main-content">
   <div id="hideColumnsCheckboxes">
-    <label class="checkbox-label"><input type="checkbox" value="address" checked> Prober Server</label>
     <label class="checkbox-label"><input type="checkbox" value="instance" checked> Target Address</label>
     <label class="checkbox-label"><input type="checkbox" value="module" checked> Module</label>
     <label class="checkbox-label"><input type="checkbox" value="zone" checked> Zone</label>
@@ -992,7 +990,6 @@
   <table id="targetsTable">
       <thead>
           <tr>
-        <th data-column="address">Prober</th>
         <th data-column="instance">Target</th>
         <th data-column="module">Module</th>
         <th data-column="zone">Zone</th>
@@ -1096,7 +1093,6 @@
           }
 
           row.innerHTML = `
-            <td>${target.address}</td>
             <td>${target.instance}</td>
             <td>${target.module}</td>
             <td>${target.zone || ''}</td>
@@ -1198,7 +1194,6 @@
         const method = 'POST';
 
         // Validation logic...
-        const proberServer = formData.get('address').trim();
         const targetAddress = formData.get('instance').trim();
         const targetLocation = formData.get('location').trim();
         const fieldsToValidate = ['service', 'device_type', 'connection_type', 'location', 'short_name'];
@@ -1211,7 +1206,6 @@
             return;
             }
         }
-        formData.set('address', proberServer);
         formData.set('instance', targetAddress);
         formData.set('location', targetLocation);
 
@@ -1349,7 +1343,7 @@
         const affectedTargets = targets.filter(t => currentTargetIdsForDeletion.includes(t.id));
         affectedTargets.forEach(t => {
             const li = document.createElement('li');
-            li.textContent = t.short_name || t.instance;
+            li.textContent = `${t.short_name} (${t.instance})`;
             affectedTargetsList.appendChild(li);
         });
 
@@ -1657,7 +1651,6 @@
         currentEditingId = id;
 
         const form = document.getElementById('addTargetForm');
-        form.querySelector('[name="address"]').value = target.address;
         form.querySelector('[name="instance"]').value = target.instance;
         form.querySelector('[name="module"]').value = target.module;
         form.querySelector('[name="zone"]').value = target.zone;
@@ -1751,7 +1744,7 @@
     // CSV Preview and Import functionality
     let csvRows = [];
     let detectedDelimiter = ',';
-    const requiredFields = ['address', 'instance', 'module', 'zone', 'service', 'device_type',
+    const requiredFields = ['instance', 'module', 'zone', 'service', 'device_type',
                           'connection_type', 'location', 'short_name'];
 
     // Function to detect CSV delimiter
@@ -2140,10 +2133,10 @@
     async function downloadTemplate(e) {
       try {
         e.preventDefault();
-        const templateHeaders = ['address', 'instance', 'module', 'zone', 'service', 'device_type',
+        const templateHeaders = ['instance', 'module', 'zone', 'service', 'device_type',
                         'connection_type', 'location', 'short_name'];
         const example = [
-          '127.0.0.1:9115', '192.168.1.1', 'icmp', 'INT', 'BACKBONE', 'ROUTER',
+          '192.168.1.1', 'icmp', 'INT', 'BACKBONE', 'ROUTER',
           'FO', 'DC1', 'abc123'
         ];
 
@@ -2297,7 +2290,7 @@
         const previewRowCountSelect = document.getElementById('previewRowCount');
         const exportCsvBtn = document.getElementById('exportCsvBtn');
         const tableHeaders = [
-            'address', 'instance', 'module', 'zone', 'service',
+            'instance', 'module', 'zone', 'service',
             'device_type', 'connection_type', 'location', 'short_name', 'enabled'
         ];
         let filteredData = [];
