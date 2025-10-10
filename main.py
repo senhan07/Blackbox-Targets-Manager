@@ -137,7 +137,6 @@ def check_addresses():
 @admin_required
 def add_target():
     target_data = {
-        'address': request.form.get('address'),
         'instance': request.form.get('instance'),
         'module': request.form.get('module'),
         'zone': request.form.get('zone'),
@@ -147,6 +146,10 @@ def add_target():
         'location': request.form.get('location'),
         'short_name': request.form.get('short_name')
     }
+
+    # Basic validation
+    if not all(target_data.values()):
+        return jsonify({'error': 'All fields are required.'}), 400
 
     id = db.add_target(target_data)
     return jsonify({"message": "Target added successfully (not saved)", "id": id}), 201
@@ -157,7 +160,6 @@ def add_target():
 @admin_required
 def edit_target(id):
     target_data = {
-        'address': request.form.get('address'),
         'instance': request.form.get('instance'),
         'module': request.form.get('module'),
         'zone': request.form.get('zone'),
@@ -167,6 +169,10 @@ def edit_target(id):
         'location': request.form.get('location'),
         'short_name': request.form.get('short_name')
     }
+    # Basic validation
+    if not all(target_data.values()):
+        return jsonify({'error': 'All fields are required.'}), 400
+
     if db.edit_target(id, target_data):
         return jsonify({"message": "Target updated successfully (not saved)"})
     return jsonify({"message": "Target not found"}), 404
@@ -272,10 +278,17 @@ def delete_series(target_id):
 
 
 def remove_and_delete_metrics(target_id, force=False):
+    # Get target details before it's potentially deleted
+    target = db.get_target_by_id(target_id)
+    if not target:
+        return {'success': False, 'error': 'Target not found.'}
+
     if not force:
         delete_result = delete_series(target_id)
         if not delete_result['success']:
-            return {'success': False, 'error': delete_result['error'], 'force_option': True}
+            # Add target details to the error message for better context
+            error_message = f"Failed to delete series for target '{target.get('short_name', 'N/A')}' ({target.get('instance', 'N/A')}): {delete_result['error']}"
+            return {'success': False, 'error': error_message, 'force_option': True}
 
     if db.hard_delete_target(target_id):
         return {'success': True}
@@ -316,9 +329,13 @@ def export_preview():
     if not isinstance(filters, list):
         return jsonify({'error': 'Filters must be a list'}), 400
 
+    valid_fields = ['instance', 'module', 'zone', 'service', 'device_type', 'connection_type', 'location', 'short_name', 'enabled']
+
     for f in filters:
         if not all(k in f for k in ['field', 'operator', 'value']):
             return jsonify({'error': 'Invalid filter format'}), 400
+        if f['field'] not in valid_fields:
+            return jsonify({'error': f"Invalid filter field: {f['field']}"}), 400
 
     filtered_targets = db.get_filtered_targets(filters)
     return jsonify(filtered_targets)
@@ -495,12 +512,17 @@ def update_settings():
     if not prometheus_address or not (prometheus_address.startswith('http://') or prometheus_address.startswith('https://')):
         return jsonify({'error': 'Invalid Prometheus address. It must start with http:// or https://'}), 400
 
+    blackbox_prober_address = data.get('blackbox_prober_address')
+    if not blackbox_prober_address or '://' in blackbox_prober_address:
+        return jsonify({'error': 'Invalid Blackbox prober address. It should be in the format host:port.'}), 400
+
 
     settings_data = {
         'yaml_endpoint_enabled': enabled,
         'yaml_endpoint_path': path,
         'idle_timeout_minutes': timeout,
-        'prometheus_address': prometheus_address
+        'prometheus_address': prometheus_address,
+        'blackbox_prober_address': blackbox_prober_address
     }
 
     if db.update_settings(settings_data):
@@ -508,7 +530,38 @@ def update_settings():
     else:
         return jsonify({'error': 'Failed to update settings'}), 500
 
+@app.route('/check_connection', methods=['POST'])
+@login_required
+@admin_required
+def check_connection():
+    data = request.get_json()
+    service = data.get('service')
+    address = data.get('address')
+
+    if not service or not address:
+        return jsonify({'error': 'Service and address are required'}), 400
+
+    if service not in ['prometheus', 'blackbox']:
+        return jsonify({'error': 'Invalid service specified'}), 400
+
+    url = address if '://' in address else f'http://{address}'
+
+    try:
+        if service == 'prometheus':
+            # Prometheus readiness check
+            response = requests.get(f'{url}/-/ready', timeout=5)
+        else: # blackbox
+            # Blackbox health check
+            response = requests.get(f'{url}/health', timeout=5)
+
+        response.raise_for_status()
+        return jsonify({'success': True, 'message': 'Connection successful'})
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     with app.app_context():
         create_default_user()
-    app.run(port=8844)
+    app.run(host='0.0.0.0', port=8844)

@@ -325,6 +325,48 @@ h1 {
     font-size: 16px;
 }
 
+.connection-check-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.connection-check-container input {
+    flex-grow: 1;
+}
+
+.check-connection-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.check-connection-btn:hover {
+    background-color: #5a6268;
+}
+
+.connection-status {
+    font-size: 18px;
+    min-width: 20px;
+    text-align: center;
+}
+
+.connection-error {
+    color: #dc3545;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 14px;
+    display: none;
+}
+
     /* Toast Container */
     #toastContainer {
       position: fixed;

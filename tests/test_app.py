@@ -205,3 +205,37 @@ def test_raw_yaml_not_found(client):
     response = client.get('/raw-yaml')
     assert response.status_code == 404
     assert b'YAML file not found' in response.data
+
+def test_add_target_and_generate_yaml(client):
+    """Test adding a target and generating the YAML file with the global prober address."""
+    # Log in as admin and change password
+    client.post('/login', data={'username': 'admin', 'password': 'admin'})
+    response = client.post('/force-change-password', data={'new_password': 'newpassword', 'confirm_password': 'newpassword'})
+    assert response.status_code == 200
+
+    # Add a target
+    target_data = {
+        'instance': '1.1.1.1',
+        'module': 'icmp',
+        'zone': 'test-zone',
+        'service': 'test-service',
+        'device_type': 'test-device',
+        'connection_type': 'test-conn',
+        'location': 'test-loc',
+        'short_name': 'test-target'
+    }
+    response = client.post('/target', data=target_data)
+    assert response.status_code == 201
+
+    # Save changes to generate YAML
+    client.post('/save')
+
+    # Check the generated YAML
+    settings = main.db.get_settings()
+    prober_address = settings.get('blackbox_prober_address')
+
+    with open(main.app.config['BLACKBOX_FILE'], 'r') as f:
+        yaml_content = f.read()
+
+    expected_line = f"  - {prober_address};1.1.1.1;icmp;test-zone;test-service;test-device;test-conn;test-loc;test-target"
+    assert expected_line in yaml_content
