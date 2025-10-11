@@ -258,12 +258,14 @@ def delete_series(target_id):
         return {'success': False, 'error': 'Target not found.'}
 
     instance = target.get('instance')
+    module = target.get('module')
+    short_name = target.get('short_name')
     delete_url = f'{prometheus_address}/api/v1/admin/tsdb/delete_series'
     cleanup_url = f'{prometheus_address}/api/v1/admin/tsdb/clean_tombstones'
 
     try:
         # Delete the series
-        response = requests.post(delete_url, data={'match[]': f'{{instance="{instance}"}}'})
+        response = requests.post(delete_url, data={'match[]': f'{{instance="{instance}",module="{module}",short_name="{short_name}"}}'})
         if response.status_code != 204:
             return {'success': False, 'error': f'Error deleting series from Prometheus: {response.text}'}
 
