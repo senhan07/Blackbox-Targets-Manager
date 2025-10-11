@@ -1021,6 +1021,15 @@
   </footer>
 
   <script>
+    function isValidInstance(instance) {
+      if (!instance) return false;
+      // Regex for validating an IP address (v4)
+      const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+      // Regex for validating a domain name
+      const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+      return ipRegex.test(instance) || domainRegex.test(instance);
+    }
+
     const userRole = '{{ user_role }}';
     let targets = [];
     let currentEditingId = null;
@@ -1195,6 +1204,12 @@
 
         // Validation logic...
         const targetAddress = formData.get('instance').trim();
+
+        if (!isValidInstance(targetAddress)) {
+          showToast('Invalid Target Address. Please enter a valid IP address or domain name.', 'error');
+          return;
+        }
+
         const targetLocation = formData.get('location').trim();
         const fieldsToValidate = ['service', 'device_type', 'connection_type', 'location', 'short_name'];
         const invalidSymbolRegex = /[^a-zA-Z0-9\s.-]/;
@@ -1917,6 +1932,13 @@
             continue;
           }
 
+          if (!isValidInstance(currentAddress)) {
+            errorCount++;
+            const errorMsg = `Row ${i + 1} (${csvRows[i][fileHeaders.indexOf('short_name')]}): Invalid instance format.`;
+            errors.push(errorMsg);
+            continue;
+          }
+
           const rowData = {};
           fileHeaders.forEach((header, index) => {
             rowData[header] = csvRows[i][index] || '';
@@ -2106,6 +2128,10 @@
         for (let i = 1; i <= rowsToShow; i++) {
           if (csvRows[i].length === 1 && csvRows[i][0] === '') continue;
           const row = document.createElement('tr');
+          const instanceValue = csvRows[i][headers.indexOf('instance')];
+          if (!isValidInstance(instanceValue)) {
+            row.style.backgroundColor = '#f8d7da'; // Highlight invalid rows
+          }
           csvRows[i].forEach(cell => {
             const td = document.createElement('td');
             td.textContent = cell;
