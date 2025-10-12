@@ -32,3 +32,5 @@ Thumbs.db
 jules-scratch/
 
 .vscode/
+build/
+*.spec
