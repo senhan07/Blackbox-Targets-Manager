@@ -8,6 +8,7 @@ from config import Config
 from functools import wraps
 import re
 import requests
+import argparse
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -563,6 +564,14 @@ def check_connection():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Blackbox Exporter Target Manager')
+    parser.add_argument('--output-yml', dest='output_yml', default=None,
+                        help='Path to the output YAML file (default: blackbox-targets.yml)')
+    args = parser.parse_args()
+
+    if args.output_yml:
+        app.config['BLACKBOX_FILE'] = args.output_yml
+
     with app.app_context():
         create_default_user()
     app.run(host='0.0.0.0', port=8844)
